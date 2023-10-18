@@ -41,7 +41,7 @@ def create_folders(base_path: Optional[str] = None, folder_structure=None):
                 "base_path is not provided, default path rejected, aborting."
             )
         base_path = os.getcwd() + "/"
-    print(f"... will create folders at {base_path=}")
+    print(f"    will create folders at {base_path=}")
 
     for folder, subfolders in folder_structure.items():
         folder_path = os.path.join(base_path, folder)

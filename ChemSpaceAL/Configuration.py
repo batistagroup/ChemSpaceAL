@@ -3,6 +3,7 @@ from torch.nn import Module
 import os
 from typing import Union, Dict, Any, List, Tuple, Optional, Any
 from .InitializeWorkspace import FOLDER_STRUCTURE as fldr_struc
+from pprint import pprint
 
 
 class Config:
@@ -14,6 +15,9 @@ class Config:
     def __init__(
         self,
         base_path: str,
+        cycle_prefix: str,
+        al_iteration: int,
+        cycle_suffix: str,
         training_fname: str,
         validation_fname: str,
         smiles_key: str = "smiles",
@@ -61,10 +65,15 @@ class Config:
         # good_mols_file: str = "good_mols.csv",
         # AL_set_save_file: str = "AL_training_set.csv",
         # AL_training_file: str = "AL_training_set.csv",
+        verbose: bool = True,
     ):
         # Setting model and training configurations
 
         self.base_path = base_path
+        self.base_sep_count = base_path.count(os.sep)
+        self.cycle_prefix = cycle_prefix
+        self.al_iteration = al_iteration
+        self.cycle_suffix = cycle_suffix
 
         # Pretraining configs
         self.training_fname = training_fname
@@ -135,13 +144,15 @@ class Config:
         self.previously_scored_mols = previously_scored_mols
         self.previous_al_train_sets = previous_al_train_sets
 
+        self.verbose = verbose
         self.regex_pattern = "(\[[^\]]+]|<|Br?|Cl?|N|O|S|P|F|I|b|c|n|o|s|p|\(|\)|\.|=|#|-|\+|\\\\|\/|:|~|@|@@|\?|>|!|~|\*|\$|\%[0-9]{2}|[0-9])"
 
         # Configuration dictionary for convenience
         # self.config_dict: Dict[str, Any] = {}
-        self.cycle_temp_params:Dict[str, Optional[str]] = {
+        self.cycle_temp_params: Dict[str, Optional[str]] = {
             "al_train_fname": None,
         }
+        self.train_params: Dict[str, Any] = {}
         self.set_config_paths()
         # self.update_config_dict()
 
@@ -237,6 +248,95 @@ class Config:
             "",
         )
 
+    def set_training_parameters(
+        self,
+        mode: str,
+        learning_rate: Optional[float] = None,
+        lr_warmup: Optional[bool] = None,
+        epochs: Optional[int] = None,
+        # al_fname: Optional[str] = None,
+        load_weight_path: Optional[str] = None,
+        wandb_project_name: Optional[str] = None,
+        wandb_runname: Optional[str] = None,
+    ):
+        if mode == "Pretraining":
+            # desc_path = (
+            #     self.pretrain_desc_path + self.training_fname.split(".")[0] + "yaml"
+            # )
+            save_model_weights = (
+                self.pretrain_weight_path
+                + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}.pt"
+            )
+            self.train_params = {
+                "epochs": epochs if epochs is not None else 30,
+                "learning_rate": learning_rate if learning_rate is not None else 3e-4,
+                "lr_warmup": lr_warmup if lr_warmup is not None else True,
+                "load_model_weight": self.pretrain_weight_path + load_weight_path
+                if load_weight_path is not None
+                else None,
+                "save_model_weight": save_model_weights,
+                # "descriptors_path": desc_path,
+            }
+
+        elif mode == "Active Learning":
+            # if al_fname is None:
+            #     if (al_fname := self.cycle_temp_params["al_fname"]) is None:
+            #         raise ValueError(
+            #             "The name of the Active Learning Set isn't stored in current session, please provide through al_fname argument"
+            #         )
+            # desc_path = self.al_desc_path + al_fname.split(".")[0] + "yaml"
+            assert (
+                self.al_iteration >= 1
+            ), "al_iteration cannot be less than 1 in Active Learning mode"
+            load_model_weights = (
+                self.al_weight_path
+                + f"{self.cycle_prefix}_al{self.al_iteration-1}_{self.cycle_suffix}.pt"
+            )
+            save_model_weights = (
+                self.al_weight_path
+                + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}.pt"
+            )
+            self.train_params = {
+                "epochs": epochs if epochs is not None else 10,
+                "learning_rate": learning_rate if learning_rate is not None else 3e-5,
+                "lr_warmup": lr_warmup if lr_warmup is not None else False,
+                "load_model_weight": load_model_weights,
+                "save_model_weight": save_model_weights,
+                # "descriptors_path": base_active_learning_descriptors + descriptors_file,
+            }
+
+        else:
+            raise KeyError(
+                f"requested {mode} but only Pretraining and Active Learning are supported"
+            )
+        if wandb_project_name is not None:
+            self.train_params["wandb_project_name"] = wandb_project_name
+            assert (
+                wandb_runname is not None
+            ), "You need to provide wandb_runname as well"
+            self.train_params["wandb_runname"] = wandb_runname
+
+        if self.verbose:
+            print("--- The following training parameters were set:")
+            print(f"    number of epochs: {self.train_params['epochs']}")
+            print(f"    learning rate: {self.train_params['learning_rate']}")
+            print(f"    learning warmup enabled? {self.train_params['lr_warmup']}")
+            if (lpath := self.train_params["load_model_weight"]) is not None:
+                rel_path = os.sep.join(lpath.split(os.sep)[self.base_sep_count :])
+                print(f"    model weights will be loaded from {rel_path}")
+            if (spath := self.train_params["save_model_weight"]) is not None:
+                rel_path = os.sep.join(spath.split(os.sep)[self.base_sep_count :])
+                print(f"    model weights will be saved to {rel_path}")
+            if wandb_project_name is None:
+                print(
+                    f"  . note: wandb_project_name and wandb_runname were not provided, you can ignore this message if you don't plan to log runs to wandb"
+                )
+            else:
+                print(
+                    f"    runs will be stored in the {self.train_params['wandb_project_name']} wandb project"
+                )
+                print(f"    under the name {self.train_params['wandb_runname']}")
+
         # print(self.pretrain_data_path)
         # print(self.pretrain_weight_path)
         # print(self.pretrain_desc_path)
@@ -253,7 +353,6 @@ class Config:
         # print(self.al_desc_path)
         # print(self.al_weight_path)
 
-        
     #     self.config_dict = {
     #         "mode": self.mode,
     #         "train_path": base_pretraining + self.training_fname,
@@ -327,39 +426,14 @@ class Config:
     #         self.base_path + "6. ActiveLearning/dataset_descriptors/"
     #     )
 
-    #     if self.mode == "Pretraining":
-    #         descriptors_file = self.training_fname.split(".")[0] + ".yaml"
-    #         self.config_dict.update(
-    #             {
-    #                 "lr_warmup": True,
-    #                 "epochs": 30,
-    #                 "learning_rate": 3e-4,
-    #                 "descriptors_path": base_pretraining_descriptors + descriptors_file,
-    #             }
-    #         )
-
-    #     elif self.mode == "Active Learning":
-    #         descriptors_file = self.AL_training_file.split(".")[0] + ".yaml"
-    #         self.config_dict.update(
-    #             {
-    #                 "lr_warmup": False,
-    #                 "epochs": 10,
-    #                 "learning_rate": 3e-5,
-    #                 "descriptors_path": base_active_learning_descriptors
-    #                 + descriptors_file,
-    #             }
-    #         )
-
-    #     else:
-    #         raise KeyError(
-    #             f"requested {self.mode} but only Pretraining and Active Learning are supported"
-    #         )
-
 
 if __name__ == "__main__":
     base_path = os.getcwd() + "/PaperRuns/"
     config = Config(
         base_path=base_path,
+        cycle_prefix="model0",
+        al_iteration=0,
+        cycle_suffix="ch0",
         training_fname="moses_test.csv.gz",
         validation_fname="moses_test.csv.gz",
     )
