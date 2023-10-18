@@ -1,7 +1,8 @@
 import torch
 from torch.nn import Module
 import os
-from typing import Union, Dict, Any, List, Tuple, Optional
+from typing import Union, Dict, Any, List, Tuple, Optional, Any
+from .InitializeWorkspace import FOLDER_STRUCTURE as fldr_struc
 
 
 class Config:
@@ -21,7 +22,7 @@ class Config:
         n_head: int = 8,
         n_embed: int = 256,
         att_drop_rate: float = 0.1,
-        att_activation:str = "GELU",
+        att_activation: str = "GELU",
         att_bias: bool = False,
         do_flash: bool = True,
         ff_mult: int = 4,
@@ -80,8 +81,8 @@ class Config:
         self.do_flash = do_flash
         # att_drop_rate controls "p" of the Dropout layer in attention block
         self.att_drop_rate = att_drop_rate
-        
-        self.att_activation:Module
+
+        self.att_activation: Module
         if att_activation == "GELU":
             self.att_activation = torch.nn.GELU()
         elif att_activation == "ReLU":
@@ -131,43 +132,128 @@ class Config:
         self.gen_batch_size = gen_batch_size
         self.temperature = temperature
 
-        # File configurations
-        # self.completions_file = completions_file
-        # self.predicted_file = predicted_file
-        # self.predicted_filtered_file = predicted_filtered_file
-
         self.previously_scored_mols = previously_scored_mols
         self.previous_al_train_sets = previous_al_train_sets
-        # self.metrics_file = metrics_file
-        # self.gen_mol_descriptors_file = gen_mol_descriptors_file
-        # self.pca_file = pca_file
-        # self.kmeans_save_file = kmeans_save_file
-        # self.clusters_save_file = clusters_save_file
-        # self.samples_save_file = samples_save_file
-        # self.diffdock_save_file = diffdock_save_file
-        # self.protein_file = protein_file
-        # self.diffdock_samples_file = diffdock_samples_file
-        # self.scored_file = scored_file
-        # self.good_mols_file = good_mols_file
-        # self.AL_set_save_file = AL_set_save_file
-        # self.AL_training_file = AL_training_file
+
+        self.regex_pattern = "(\[[^\]]+]|<|Br?|Cl?|N|O|S|P|F|I|b|c|n|o|s|p|\(|\)|\.|=|#|-|\+|\\\\|\/|:|~|@|@@|\?|>|!|~|\*|\$|\%[0-9]{2}|[0-9])"
 
         # Configuration dictionary for convenience
         # self.config_dict: Dict[str, Any] = {}
-        # self.set_config_dict()
+        self.cycle_temp_params:Dict[str, Optional[str]] = {
+            "al_train_fname": None,
+        }
+        self.set_config_paths()
         # self.update_config_dict()
 
-    # def set_config_dict(self):
-    #     """Set the configuration dictionary with paths and parameters."""
+    def set_config_paths(self):
+        """Set the configuration dictionary with paths and parameters."""
+        self.pretrain_data_path = os.path.join(
+            self.base_path,
+            "1_Pretraining",
+            fldr_struc["1_Pretraining"]["dataset_folder"],
+            "",
+        )
+        self.pretrain_weight_path = os.path.join(
+            self.base_path,
+            "1_Pretraining",
+            fldr_struc["1_Pretraining"]["weight_folder"],
+            "",
+        )
+        self.pretrain_desc_path = os.path.join(
+            self.base_path,
+            "1_Pretraining",
+            fldr_struc["1_Pretraining"]["desc_folder"],
+            "",
+        )
+        self.generations_path = os.path.join(
+            self.base_path,
+            "2_Generation",
+            "",
+        )
+        self.sampling_desc_path = os.path.join(
+            self.base_path,
+            "3_Sampling",
+            fldr_struc["3_Sampling"]["desc_folder"],
+            "",
+        )
+        self.sampling_pca_path = os.path.join(
+            self.base_path,
+            "3_Sampling",
+            fldr_struc["3_Sampling"]["pca_folder"],
+            "",
+        )
+        self.sampling_kmeans_path = os.path.join(
+            self.base_path,
+            "3_Sampling",
+            fldr_struc["3_Sampling"]["kmeans_folder"],
+            "",
+        )
+        self.sampling_clusters_path = os.path.join(
+            self.base_path,
+            "3_Sampling",
+            fldr_struc["3_Sampling"]["clustering_folder"],
+            "",
+        )
+        self.scoring_target_path = os.path.join(
+            self.base_path,
+            "4_Scoring",
+            fldr_struc["4_Scoring"]["target_folder"],
+            "",
+        )
+        self.scoring_candidate_path = os.path.join(
+            self.base_path,
+            "4_Scoring",
+            fldr_struc["4_Scoring"]["candidate_folder"],
+            "",
+        )
+        self.scoring_pose_path = os.path.join(
+            self.base_path,
+            "4_Scoring",
+            fldr_struc["4_Scoring"]["pose_folder"],
+            "",
+        )
+        self.scoring_score_path = os.path.join(
+            self.base_path,
+            "4_Scoring",
+            fldr_struc["4_Scoring"]["score_folder"],
+            "",
+        )
+        self.al_train_path = os.path.join(
+            self.base_path,
+            "5_ActiveLearning",
+            fldr_struc["5_ActiveLearning"]["train_folder"],
+            "",
+        )
+        self.al_desc_path = os.path.join(
+            self.base_path,
+            "5_ActiveLearning",
+            fldr_struc["5_ActiveLearning"]["desc_folder"],
+            "",
+        )
+        self.al_weight_path = os.path.join(
+            self.base_path,
+            "5_ActiveLearning",
+            fldr_struc["5_ActiveLearning"]["weight_folder"],
+            "",
+        )
 
-    #     base_pretraining = self.base_path + "1. Pretraining/datasets/"
-    #     base_gen_path = self.base_path + "2. Generation/"
-    #     base_sampling_path = self.base_path + "3. Sampling/"
-    #     base_diffdock_path = self.base_path + "4. Diffdock/"
-    #     base_scoring = self.base_path + "5. Scoring/scored_molecules/"
-    #     base_active_learning = self.base_path + "6. ActiveLearning/"
-    #     base_model_parameters = self.base_path + "ModelParameters/"
+        # print(self.pretrain_data_path)
+        # print(self.pretrain_weight_path)
+        # print(self.pretrain_desc_path)
+        # print(self.generations_path)
+        # print(self.sampling_desc_path)
+        # print(self.sampling_pca_path)
+        # print(self.sampling_kmeans_path)
+        # print(self.sampling_clusters_path)
+        # print(self.scoring_target_path)
+        # print(self.scoring_candidate_path)
+        # print(self.scoring_pose_path)
+        # print(self.scoring_score_path)
+        # print(self.al_train_path)
+        # print(self.al_desc_path)
+        # print(self.al_weight_path)
 
+        
     #     self.config_dict = {
     #         "mode": self.mode,
     #         "train_path": base_pretraining + self.training_fname,
@@ -268,3 +354,12 @@ class Config:
     #         raise KeyError(
     #             f"requested {self.mode} but only Pretraining and Active Learning are supported"
     #         )
+
+
+if __name__ == "__main__":
+    base_path = os.getcwd() + "/PaperRuns/"
+    config = Config(
+        base_path=base_path,
+        training_fname="moses_test.csv.gz",
+        validation_fname="moses_test.csv.gz",
+    )

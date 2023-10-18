@@ -1,9 +1,9 @@
-import yaml
+import yaml # type:ignore
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
 import numpy as np
 from Sophia.sophia import SophiaG
-from torch.nn import functional as F
 
 
 class GPTConfig:

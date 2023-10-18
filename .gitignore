@@ -1,6 +1,10 @@
 .DS_Store
 prod.ipynb
 sandbox.ipynb
+*/Sophia/
+
+moses_test.csv.gz
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

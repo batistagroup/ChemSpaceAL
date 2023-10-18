@@ -18,7 +18,7 @@ FOLDER_STRUCTURE = {
         "target_folder": "binding_targets",
         "candidate_folder": "sampled_mols",
         "pose_folder": "binding_poses",
-        "scored_folder": "scored_dataframes",
+        "score_folder": "scored_dataframes",
     },
     "5_ActiveLearning": {
         "train_folder": "training_sets",
