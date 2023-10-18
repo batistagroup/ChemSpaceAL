@@ -1,19 +1,23 @@
-import yaml  # type:ignore
+# import yaml  # type:ignore
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 import numpy as np
 from Sophia.sophia import SophiaG
 
+from typing import Tuple, Optional
 
-from typing import Tuple
+from ChemSpaceAL.Configuration import ModelConfig
+
 
 class SelfAttention(nn.Module):
     """Self-attention block for the GPT architecture."""
 
-    def __init__(self, config):
+    def __init__(self, config: ModelConfig):
         super().__init__()
-        assert config.n_embed % config.n_head == 0
+        assert (
+            config.n_embed % config.n_head == 0
+        ), f"n_embed={config.n_embed} should be a multiple of n_head={config.n_head}"
 
         self.config = config
         # Defining the query, key, and value linear transformations
@@ -30,6 +34,7 @@ class SelfAttention(nn.Module):
         self.n_head = config.n_head
 
         # Registering a lower-triangular mask for causal attention
+        self.mask: torch.Tensor
         self.register_buffer(
             "mask",
             torch.tril(torch.ones(config.block_size, config.block_size)).view(
@@ -37,7 +42,7 @@ class SelfAttention(nn.Module):
             ),
         )
 
-    def forward(self, x, layer_past=None):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, T, C = x.size()
         q = self.query(x).view(B, T, self.n_head, C // self.n_head)
         k = self.key(x).view(B, T, self.n_head, C // self.n_head)
@@ -47,18 +52,20 @@ class SelfAttention(nn.Module):
         if self.config.do_flash:
             q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
             y = torch.nn.functional.scaled_dot_product_attention(
-                q,
-                k,
-                v,
+                query=q,
+                key=k,
+                value=v,
                 dropout_p=self.config.att_drop_rate if self.training else 0,
                 is_causal=True,
             )
             y = y.transpose(1, 2)
         else:
             # Standard self-attention implementation
+            # (B h T s) @ (B h s T) -> (B h T T)
             att = torch.einsum("bths,bihs->bhti", q, k) / np.sqrt(k.size(-1))
             att = att.masked_fill(self.mask[:, :, :T, :T] == 0, float("-inf"))
             att = F.softmax(att, dim=-1)
+            # (B h T T) @ (B h T s) -> (B h T s)
             y = torch.einsum("bhtq,bqhs->bths", att, v)
             self.att_weights = att
 
@@ -69,10 +76,10 @@ class SelfAttention(nn.Module):
         return y
 
 
-class Block(nn.Module):
+class TransformerBlock(nn.Module):
     """GPT block that consists of one self-attention module and one MLP."""
 
-    def __init__(self, config):
+    def __init__(self, config: ModelConfig):
         super().__init__()
 
         self.ln1 = nn.LayerNorm(config.n_embed)
@@ -86,7 +93,7 @@ class Block(nn.Module):
             nn.Dropout(config.att_drop_rate),
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         y = self.attn(self.ln1(x))
         x = x + y
         x = x + self.mlp(self.ln2(x))
@@ -96,30 +103,22 @@ class Block(nn.Module):
 class GPT(nn.Module):
     """Main GPT model."""
 
-    def __init__(self, config):
+    def __init__(self, config: ModelConfig):
         super().__init__()
         self.config = config
-
-        # Token embeddings
+        # token, type, and position embedding
         self.tok_emb = nn.Embedding(config.vocab_size, config.n_embed)
-
-        # Type embeddings, typically used for distinguishing between different kinds of input
         self.type_emb = nn.Embedding(2, config.n_embed)
-
-        # Position embeddings
         self.pos_emb = nn.Parameter(torch.zeros(1, config.block_size, config.n_embed))
-
-        # Dropout layer
         self.drop = nn.Dropout(config.gpt_drop_rate)
 
-        # GPT blocks
-        self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
-
+        self.blocks = nn.Sequential(
+            *[TransformerBlock(config) for _ in range(config.n_layer)]
+        )
         # Final layer normalization and the output head
         self.ln_f = nn.LayerNorm(config.n_embed)
         self.head = nn.Linear(config.n_embed, config.vocab_size, bias=config.gpt_bias)
         self.block_size = config.block_size
-
         # Initializing weights
         self.apply(self._init_weights)
 
@@ -181,7 +180,9 @@ class GPT(nn.Module):
         )
         return optimizer
 
-    def forward(self, idx, targets=None):
+    def forward(
+        self, idx: torch.Tensor, targets: Optional[torch.Tensor] = None
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """Forward pass for the GPT model."""
         b, t = idx.size()
         assert t <= self.block_size
@@ -199,7 +200,7 @@ class GPT(nn.Module):
             x = layer(x)
 
         x = self.ln_f(x)
-        logits = self.head(x)
+        logits: torch.Tensor = self.head(x)
 
         # Compute loss if targets are provided
         loss = (
