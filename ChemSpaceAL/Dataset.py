@@ -112,7 +112,7 @@ class SMILESDataset(Dataset):
 
 
 def load_data(
-    config: Configuration.Config, mode: str, forced_block_size=None, forced_vocab=None
+    config: Configuration.Config, mode: str, forced_block_size:Optional[int]=None, forced_vocab:Optional[List[str]]=None
 ):
     """
     Load data based on the provided configuration dictionary.
