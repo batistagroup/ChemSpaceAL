@@ -6,8 +6,8 @@ from torch.utils.data.dataloader import DataLoader
 from typing import Optional
 
 from ChemSpaceAL.Dataset import SMILESDataset
-from ChemSpaceAL.Configuration import Config
-from ChemSpaceAL.Model import GPT, GPTConfig
+from ChemSpaceAL.Configuration import Config, ModelConfig
+from ChemSpaceAL.Model import GPT
 
 import wandb
 from tqdm import tqdm
@@ -34,7 +34,7 @@ class Trainer:
         self,
         model: torch.nn.Module,
         optimizer,
-        model_config: GPTConfig,
+        model_config: ModelConfig,
         train_dataset: SMILESDataset,
         valid_dataset: Optional[SMILESDataset] = None,
         wandb=None,
@@ -102,7 +102,7 @@ class Trainer:
                 if self.model_config.lr_decay:
                     self.tokens += (y >= 0).sum()
                     if (
-                        self.model_config.lr_warmup
+                        self.model_config.train_params["lr_warmup"]
                         and self.tokens < self.model_config.num_warmup_tokens
                     ):
                         lr_mult = float(self.tokens) / float(
@@ -111,18 +111,18 @@ class Trainer:
                     else:
                         baseline = (
                             self.model_config.num_warmup_tokens
-                            if self.model_config.lr_warmup
+                            if self.model_config.train_params["lr_warmup"]
                             else 0
                         )
                         progress = float(self.tokens - baseline) / float(
                             max(1, self.model_config.total_num_tokens - baseline)
                         )
                         lr_mult = max(0.1, 0.5 * (1.0 + np.cos(np.pi * progress)))
-                    lr = self.model_config.lr * lr_mult
+                    lr = self.model_config.train_params["learning_rate"] * lr_mult
                     for param_group in self.optimizer.param_groups:
                         param_group["lr"] = lr
                 else:
-                    lr = self.model_config.lr
+                    lr = self.model_config.train_params["lr"]
 
                 # Log to wandb, if enabled
                 if self.wandb:
@@ -146,12 +146,12 @@ class Trainer:
         self.tokens = 0
 
         best_loss = float("inf")
-        for epoch in range(config.epochs):
-            train_loss = run_epoch("train", epoch)
+        for epoch in range(self.model_config.train_params["epochs"]):
+            train_loss = self.run_epoch("train", epoch)
             log_dict = {"epoch_train_loss": train_loss, "epoch": epoch + 1}
 
             if self.valid_dataset is not None:
-                valid_loss = run_epoch("valid")
+                valid_loss = self.run_epoch("valid")
                 log_dict["epoch_valid_loss"] = valid_loss
 
             if self.wandb:
@@ -166,7 +166,7 @@ class Trainer:
                     good_model = True
 
             if good_model:
-                torch.save(self.model.state_dict(), self.model_config.save_model_path)
+                torch.save(self.model.state_dict(), self.model_config.train_params["save_model_weight"])
 
 
 def train_GPT(
@@ -192,30 +192,30 @@ def train_GPT(
     - trainer: The Trainer object that trained the model.
     - wandb: wandb logger object.
     """
-    print(config.train_params.keys())
-    print({"epochs", "learning_rate", "lr_warmup"} - set(config.train_params.keys()))
+    mconf = config.model_config
     assert {"epochs", "learning_rate", "lr_warmup"} - set(
-        config.train_params.keys()
+        mconf.train_params.keys()
     ) == set(), "Please call .set_training_parameters on config before trying to train the model"
 
     if log_wandb:
         assert (
-            "wandb_runname" in config.train_params
+            "wandb_runname" in mconf.train_params
         ), "if you want to log training run to wandb, please provide wandb_project_name and wandb_runname when calling .set_training_parameters on config"
 
     if load_checkpoint:
         assert (
-            ckpt := config.train_params["load_model_weight"]
+            ckpt := mconf.train_params["load_model_weight"]
         ) is not None, (
             "please provide load_weight_path to .set_training_parameters of the config"
         )
 
     total_num_tokens = (
-        config.train_params["epochs"]
+        mconf.train_params["epochs"]
         * training_dataset.len_data
         * training_dataset.block_size
     )
-    mconf = GPTConfig(
+
+    mconf.set_dataset_attributes(
         vocab_size=training_dataset.vocab_size,
         block_size=training_dataset.block_size,
         num_warmup_tokens=int(
@@ -223,32 +223,24 @@ def train_GPT(
         ),
         total_num_tokens=total_num_tokens,
         loss_ignore_index=training_dataset.stoi["<"],
-        batch_size=config.batch_size,
-        num_workers=config.num_workers,
-        device=config.device,
-        lr=config.train_params["learning_rate"],
-        lr_decay=config.lr_decay,
-        lr_warmup=config.train_params["lr_warmup"],
-        save_model_path=config.train_params["save_model_weight"]
-        # **config_dict,
     )
 
     model = GPT(mconf)
     if load_checkpoint:
         model.load_state_dict(torch.load(ckpt))
     optimizer = model.configure_optimizers(
-        weight_decay=config.weight_decay,
-        lr=config.train_params["learning_rate"],
-        betas=config.betas,
-        rho=config.rho,
+        weight_decay=mconf.weight_decay,
+        lr=mconf.train_params["learning_rate"],
+        betas=mconf.betas,
+        rho=mconf.rho,
     )
-    model.to(config.device)
+    model.to(mconf.device)
     torch.compile(model)
 
     if log_wandb:
         wandb.init(
-            project=config.train_params["wandb_project_name"],
-            name=config.train_params["wandb_runname"],
+            project=mconf.train_params["wandb_project_name"],
+            name=mconf.train_params["wandb_runname"],
         )
     trainer = Trainer(
         model=model,
@@ -256,8 +248,9 @@ def train_GPT(
         model_config=mconf,
         train_dataset=training_dataset,
         valid_dataset=validation_dataset,
-        wandb=wandb,
+        wandb=wandb if wandb.run is not None else None,
     )
     trainer.train()
-    wandb.finish()
+    if log_wandb: 
+        wandb.finish()
     return model, trainer

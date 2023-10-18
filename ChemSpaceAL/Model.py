@@ -8,49 +8,49 @@ from Sophia.sophia import SophiaG
 from typing import Tuple
 
 
-class GPTConfig:
-    """GPT Configuration class."""
+# class GPTConfig:
+#     """GPT Configuration class."""
 
-    def __init__(
-        self,
-        vocab_size: int,
-        block_size: int,
-        num_warmup_tokens: int,
-        total_num_tokens: int,
-        loss_ignore_index: int,
-        batch_size: int,
-        num_workers: int,
-        device: str,
-        lr: float,
-        lr_decay: bool,
-        lr_warmup: bool,
-        save_model_path: str,
-    ):
-        self.vocab_size = vocab_size
-        self.block_size = block_size
-        self.num_warmup_tokens = num_warmup_tokens
-        self.total_num_tokens = total_num_tokens
-        self.loss_ignore_index = loss_ignore_index
-        self.batch_size = batch_size
-        self.num_workers = num_workers
-        self.device = device
-        self.lr = lr
-        self.lr_decay = lr_decay
-        self.lr_warmup = lr_warmup
-        self.save_model_path = save_model_path
-        # for k, v in kwargs.items():
-        #     setattr(self, k, v)
+#     def __init__(
+#         self,
+#         vocab_size: int,
+#         block_size: int,
+#         num_warmup_tokens: int,
+#         total_num_tokens: int,
+#         loss_ignore_index: int,
+#         batch_size: int,
+#         num_workers: int,
+#         device: str,
+#         lr: float,
+#         lr_decay: bool,
+#         lr_warmup: bool,
+#         save_model_path: str,
+#     ):
+#         self.vocab_size = vocab_size
+#         self.block_size = block_size
+#         self.num_warmup_tokens = num_warmup_tokens
+#         self.total_num_tokens = total_num_tokens
+#         self.loss_ignore_index = loss_ignore_index
+#         self.batch_size = batch_size
+#         self.num_workers = num_workers
+#         self.device = device
+#         self.lr = lr
+#         self.lr_decay = lr_decay
+#         self.lr_warmup = lr_warmup
+#         self.save_model_path = save_model_path
+#         # for k, v in kwargs.items():
+#         #     setattr(self, k, v)
 
-    def export_attributes(self, export_path: str):
-        """Export model attributes to a yaml file."""
-        with open(export_path, "w") as f:
-            yaml.dump(vars(self), f)
+#     def export_attributes(self, export_path: str):
+#         """Export model attributes to a yaml file."""
+#         with open(export_path, "w") as f:
+#             yaml.dump(vars(self), f)
 
-    def load_attributes(self, load_path: str):
-        """Load model attributes from a yaml file."""
-        with open(load_path, "r") as f:
-            config_dict = yaml.load(f, Loader=yaml.SafeLoader)
-        self.__dict__.update(config_dict)
+#     def load_attributes(self, load_path: str):
+#         """Load model attributes from a yaml file."""
+#         with open(load_path, "r") as f:
+#             config_dict = yaml.load(f, Loader=yaml.SafeLoader)
+#         self.__dict__.update(config_dict)
 
 
 class SelfAttention(nn.Module):
@@ -126,7 +126,7 @@ class Block(nn.Module):
         # Feed-forward neural network
         self.mlp = nn.Sequential(
             nn.Linear(config.n_embed, config.ff_mult * config.n_embed),
-            nn.GELU() if config.doGELU else nn.ReLU(),
+            config.att_activation,
             nn.Linear(config.ff_mult * config.n_embed, config.n_embed),
             nn.Dropout(config.att_drop_rate),
         )

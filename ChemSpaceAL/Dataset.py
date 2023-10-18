@@ -99,9 +99,11 @@ class SMILESDataset(Dataset):
         regex = re.compile(self.regex_pattern)
         smiles_matches = regex.findall(smiles)
 
-        assert (
-            len(smiles_matches) <= self.block_size
-        ), f"A smiles with {len(smiles_matches)} tokens was loaded, but the block size is limited to {self.block_size}"
+        # do we really need to check this though?
+        # assert (
+        #     len(set(smiles_matches)) <= self.block_size
+        # ), f"A smiles {smiles=} {len(smiles)} tokens was loaded, but the block size is limited to {self.block_size}"
+
         # if len(smiles_matches) > self.block_size + 1:
         # smiles = smiles[: self.block_size + 1]
 

@@ -23,22 +23,6 @@ class Config:
         smiles_key: str = "smiles",
         # mode: str = "Pretraining",
         slice_data: Union[bool, int] = False,
-        n_head: int = 8,
-        n_embed: int = 256,
-        att_drop_rate: float = 0.1,
-        att_activation: str = "GELU",
-        att_bias: bool = False,
-        do_flash: bool = True,
-        ff_mult: int = 4,
-        n_layer: int = 8,
-        gpt_drop_rate: float = 0.1,
-        gpt_bias: bool = True,
-        weight_decay: float = 0.1,
-        betas: Tuple[float, float] = (0.965, 0.99),
-        rho: float = 0.04,
-        batch_size: int = 512,
-        num_workers: int = 0,
-        lr_decay: bool = True,
         # pretraining_checkpoint_file: str = "pretraining_checkpoint.pt",
         # al_checkpoint_file: str = "al_checkpoint.pt",
         # project_name: str = "ChemSpaceAL",
@@ -82,59 +66,6 @@ class Config:
         self.slice_data = slice_data
         self.smiles_key = smiles_key
 
-        # Model parameters
-        # n_embed controls the dimensionality of the embedding vector for each character in the vocabulary
-        self.n_embed = n_embed
-        self.n_head = n_head
-        # do_flash controls whether FlashAttention is used, otherwise regular einsum based multiplication
-        self.do_flash = do_flash
-        # att_drop_rate controls "p" of the Dropout layer in attention block
-        self.att_drop_rate = att_drop_rate
-
-        self.att_activation: Module
-        if att_activation == "GELU":
-            self.att_activation = torch.nn.GELU()
-        elif att_activation == "ReLU":
-            self.att_activation = torch.nn.ReLU()
-        else:
-            raise ValueError(
-                f"only GeLU and ReLU are supported for the activation layer in attention block"
-            )
-        # att_bias controls whether bias is included in the MLP layer following attention block
-        self.att_bias = att_bias
-        # ff_mult*n_embed is the dimensionality of the hidden layer in the MLP following attention block
-        self.ff_mult = ff_mult
-        # gpt_drop_rate controls "p" of the Dropout layer
-        self.gpt_drop_rate = gpt_drop_rate
-        # n_layer is the number of Transformer Blocks
-        self.n_layer = n_layer
-        # gpt_bias controls whether bias is enabled in the final MLP before a token prediction is made
-        self.gpt_bias = gpt_bias
-
-        # SophiaG parameters
-        self.weight_decay = weight_decay
-        self.betas = betas
-        self.rho = rho
-
-        # Training Parameters
-        self.batch_size = batch_size
-        self.num_workers = num_workers
-
-        # Setting device based on availability
-        if torch.cuda.is_available():
-            self.device = "cuda"
-        elif torch.backends.mps.is_available():
-            self.device = "mps"
-        else:
-            self.device = "cpu"
-
-        # Miscellaneous configurations
-        self.lr_decay = lr_decay
-        # self.pretraining_checkpoint_file = pretraining_checkpoint_file
-        # self.al_checkpoint_file = al_checkpoint_file
-        # self.project_name = project_name
-        # self.wandb_runname = wandb_runname
-
         # Generation Parameters
         self.context = context
         self.gen_size = gen_size
@@ -152,7 +83,8 @@ class Config:
         self.cycle_temp_params: Dict[str, Optional[str]] = {
             "al_train_fname": None,
         }
-        self.train_params: Dict[str, Any] = {}
+        self.model_config = ModelConfig()
+
         self.set_config_paths()
         # self.update_config_dict()
 
@@ -267,7 +199,7 @@ class Config:
                 self.pretrain_weight_path
                 + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}.pt"
             )
-            self.train_params = {
+            self.model_config.train_params = {
                 "epochs": epochs if epochs is not None else 30,
                 "learning_rate": learning_rate if learning_rate is not None else 3e-4,
                 "lr_warmup": lr_warmup if lr_warmup is not None else True,
@@ -296,7 +228,7 @@ class Config:
                 self.al_weight_path
                 + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}.pt"
             )
-            self.train_params = {
+            self.model_config.train_params = {
                 "epochs": epochs if epochs is not None else 10,
                 "learning_rate": learning_rate if learning_rate is not None else 3e-5,
                 "lr_warmup": lr_warmup if lr_warmup is not None else False,
@@ -310,32 +242,33 @@ class Config:
                 f"requested {mode} but only Pretraining and Active Learning are supported"
             )
         if wandb_project_name is not None:
-            self.train_params["wandb_project_name"] = wandb_project_name
+            self.model_config.train_params["wandb_project_name"] = wandb_project_name
             assert (
                 wandb_runname is not None
             ), "You need to provide wandb_runname as well"
-            self.train_params["wandb_runname"] = wandb_runname
+            self.model_config.train_params["wandb_runname"] = wandb_runname
 
         if self.verbose:
-            print("--- The following training parameters were set:")
-            print(f"    number of epochs: {self.train_params['epochs']}")
-            print(f"    learning rate: {self.train_params['learning_rate']}")
-            print(f"    learning warmup enabled? {self.train_params['lr_warmup']}")
-            if (lpath := self.train_params["load_model_weight"]) is not None:
+            message = f"""--- The following training parameters were set:
+    number of epochs: {self.model_config.train_params['epochs']}
+    learning rate: {self.model_config.train_params['learning_rate']}
+    learning warmup enabled? {self.model_config.train_params['lr_warmup']}"""
+            if (
+                lpath := self.model_config.train_params["load_model_weight"]
+            ) is not None:
                 rel_path = os.sep.join(lpath.split(os.sep)[self.base_sep_count :])
-                print(f"    model weights will be loaded from {rel_path}")
-            if (spath := self.train_params["save_model_weight"]) is not None:
+                message += f"\n    model weights will be loaded from {rel_path}"
+            if (
+                spath := self.model_config.train_params["save_model_weight"]
+            ) is not None:
                 rel_path = os.sep.join(spath.split(os.sep)[self.base_sep_count :])
-                print(f"    model weights will be saved to {rel_path}")
+                message += f"\n    model weights will be saved to {rel_path}"
             if wandb_project_name is None:
-                print(
-                    f"  . note: wandb_project_name and wandb_runname were not provided, you can ignore this message if you don't plan to log runs to wandb"
-                )
+                message += f"\n  . note: wandb_project_name and wandb_runname were not provided, you can ignore this message if you don't plan to log runs to wandb"
             else:
-                print(
-                    f"    runs will be stored in the {self.train_params['wandb_project_name']} wandb project"
-                )
-                print(f"    under the name {self.train_params['wandb_runname']}")
+                message +=f"\n    runs will be stored in the {self.model_config.train_params['wandb_project_name']} wandb project"
+                message += f"\n    under the name {self.model_config.train_params['wandb_runname']}"
+            print(message)
 
         # print(self.pretrain_data_path)
         # print(self.pretrain_weight_path)
@@ -425,6 +358,95 @@ class Config:
     #     base_active_learning_descriptors = (
     #         self.base_path + "6. ActiveLearning/dataset_descriptors/"
     #     )
+
+
+class ModelConfig:
+    """GPT Configuration class."""
+
+    def __init__(
+        self,
+        n_head: int = 8,
+        n_embed: int = 256,
+        att_drop_rate: float = 0.1,
+        att_activation: str = "GELU",
+        att_bias: bool = False,
+        do_flash: bool = True,
+        ff_mult: int = 4,
+        n_layer: int = 8,
+        gpt_drop_rate: float = 0.1,
+        gpt_bias: bool = True,
+        weight_decay: float = 0.1,
+        betas: Tuple[float, float] = (0.965, 0.99),
+        rho: float = 0.04,
+        batch_size: int = 512,
+        num_workers: int = 0,
+        lr_decay: bool = True,
+    ):
+
+        # Model parameters
+        # n_embed controls the dimensionality of the embedding vector for each character in the vocabulary
+        self.n_embed = n_embed
+        self.n_head = n_head
+        # do_flash controls whether FlashAttention is used, otherwise regular einsum based multiplication
+        self.do_flash = do_flash
+        # att_drop_rate controls "p" of the Dropout layer in attention block
+        self.att_drop_rate = att_drop_rate
+
+        self.att_activation: Module
+        if att_activation == "GELU":
+            self.att_activation = torch.nn.GELU()
+        elif att_activation == "ReLU":
+            self.att_activation = torch.nn.ReLU()
+        else:
+            raise ValueError(
+                f"only GeLU and ReLU are supported for the activation layer in attention block"
+            )
+        # att_bias controls whether bias is included in the MLP layer following attention block
+        self.att_bias = att_bias
+        # ff_mult*n_embed is the dimensionality of the hidden layer in the MLP following attention block
+        self.ff_mult = ff_mult
+        # gpt_drop_rate controls "p" of the Dropout layer
+        self.gpt_drop_rate = gpt_drop_rate
+        # n_layer is the number of Transformer Blocks
+        self.n_layer = n_layer
+        # gpt_bias controls whether bias is enabled in the final MLP before a token prediction is made
+        self.gpt_bias = gpt_bias
+
+
+        # SophiaG parameters
+        self.weight_decay = weight_decay
+        self.betas = betas
+        self.rho = rho
+
+        # Training Parameters
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+
+        # Setting device based on availability
+        if torch.cuda.is_available():
+            self.device = "cuda"
+        elif torch.backends.mps.is_available():
+            self.device = "mps"
+        else:
+            self.device = "cpu"
+
+        # Miscellaneous configurations
+        self.lr_decay = lr_decay
+
+        self.train_params: Dict[str, Any] = {}
+
+    def set_dataset_attributes(
+        self,
+        vocab_size: int,
+        block_size: int,
+        num_warmup_tokens: int,
+        total_num_tokens: int,
+        loss_ignore_index: int,):
+        self.vocab_size = vocab_size
+        self.block_size = block_size
+        self.num_warmup_tokens = num_warmup_tokens
+        self.total_num_tokens = total_num_tokens
+        self.loss_ignore_index = loss_ignore_index
 
 
 if __name__ == "__main__":
