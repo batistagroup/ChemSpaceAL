@@ -35,13 +35,13 @@ def create_folders(base_path: Optional[str] = None, folder_structure=None):
         print(
             f"! WARNING: base_path is not provided, do you want to use the following path?"
         )
-        response = input(f'"{os.getcwd()}/"? Type Y/N: ')
+        response = input(f'... "{os.getcwd()}/"? Type Y/N: ')
         if response != "Y":
             raise ValueError(
                 "base_path is not provided, default path rejected, aborting."
             )
         base_path = os.getcwd() + "/"
-    print(f"- will create folders at {base_path=}")
+    print(f"... will create folders at {base_path=}")
 
     for folder, subfolders in folder_structure.items():
         folder_path = os.path.join(base_path, folder)
