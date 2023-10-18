@@ -1,4 +1,6 @@
 import torch
+import os
+from typing import Union, Dict, Any, List, Tuple, Optional
 
 
 class Config:
@@ -9,54 +11,56 @@ class Config:
 
     def __init__(
         self,
-        mode="Pretraining",
-        base_path="C:/Users/Gregory/Desktop/ChemSpaceAL/ChemSpaceAL_package/run_ChemSpaceAL/",
-        training_filename="training.csv.gz",
-        slice_data=False,
-        validation_filename="validation.csv.gz",
-        n_head=8,
-        n_embed=256,
-        att_bias=False,
-        att_drop_rate=0.1,
-        do_flash=True,
-        ff_mult=4,
-        doGELU=True,
-        gpt_drop_rate=0.1,
-        n_layer=8,
-        gpt_bias=True,
-        weight_decay=0.1,
-        betas=(0.965, 0.99),
-        rho=0.04,
-        batch_size=512,
-        num_workers=0,
-        lr_decay=True,
-        pretraining_checkpoint_file="pretraining_checkpoint.pt",
-        al_checkpoint_file="al_checkpoint.pt",
-        project_name="ChemSpaceAL",
-        wandb_runname="pretraining_run",
-        context="!",
-        gen_batch_size=64,
-        temp=1.0,
-        gen_size=10_000,
-        completions_file="completions.csv",
-        predicted_file="predicted.csv",
-        predicted_filtered_file="filtered_predicted.csv",
-        smiles_key="smiles",
-        previously_scored_mols=[],
-        previous_al_train_sets=[],
-        metrics_file="metrics.txt",
-        gen_mol_descriptors_file="generated_molecules_descriptors.csv",
-        pca_file="pca.pkl",
-        kmeans_save_file="kmeans.pkl",
-        clusters_save_file="clusters.pkl",
-        samples_save_file="samples.pkl",
-        diffdock_save_file="diffdock.pkl",
-        protein_file="protein.pdb",
-        diffdock_samples_file="sampled.csv",
-        scored_file="scored.csv",
-        good_mols_file="good_mols.csv",
-        AL_set_save_file="AL_training_set.csv",
-        AL_training_file="AL_training_set.csv",
+        base_path: str,  # =os.getcwd() + "/",
+        training_filename: str,  # ="training.csv.gz",
+        validation_filename: str,  # ="validation.csv.gz",
+        mode: str = "Pretraining",
+        slice_data: Union[
+            bool, int
+        ] = False,  # if False, use all data, if an integer N, data will be sliced as data[:N]
+        n_head: int = 8,
+        n_embed: int = 256,
+        att_bias: bool = False,
+        att_drop_rate: float = 0.1,
+        do_flash: bool = True,
+        ff_mult: int = 4,  # ff_mult * n_embed = n_hidden units in the feedforward layer of the transformer
+        doGELU: bool = True,  # otherwise use ReLU (potential todo: make this a string argument)
+        gpt_drop_rate: float = 0.1,  # the p-parameter of Dropout after embedding
+        n_layer: int = 8,
+        gpt_bias: bool = True,
+        weight_decay: float = 0.1,
+        betas: Tuple[float, float] = (0.965, 0.99),  # SophiaG hyperparameters
+        rho: float = 0.04,  # SophiaG hyperparameter
+        batch_size: int = 512,
+        num_workers: int = 0,
+        lr_decay: bool = True,
+        pretraining_checkpoint_file: str = "pretraining_checkpoint.pt",
+        al_checkpoint_file: str = "al_checkpoint.pt",
+        project_name: str = "ChemSpaceAL",
+        wandb_runname: str = "pretraining_run",
+        context: str = "!",
+        gen_batch_size: int = 64,
+        temp: float = 1.0,
+        gen_size: int = 10_000,
+        completions_file: str = "completions.csv",
+        predicted_file: str = "predicted.csv",
+        predicted_filtered_file: str = "filtered_predicted.csv",
+        smiles_key: str = "smiles",
+        previously_scored_mols: Optional[List] = None,
+        previous_al_train_sets: Optional[List] = None,
+        metrics_file:str="metrics.txt",
+        gen_mol_descriptors_file:str="generated_molecules_descriptors.csv",
+        pca_file:str="pca.pkl",
+        kmeans_save_file:str="kmeans.pkl",
+        clusters_save_file:str="clusters.pkl",
+        samples_save_file:str="samples.pkl",
+        diffdock_save_file:str="diffdock.pkl",
+        protein_file:str="protein.pdb",
+        diffdock_samples_file:str="sampled.csv",
+        scored_file:str="scored.csv",
+        good_mols_file:str="good_mols.csv",
+        AL_set_save_file:str="AL_training_set.csv",
+        AL_training_file:str="AL_training_set.csv",
     ):
         # Setting model and training configurations
         self.mode = mode
@@ -121,7 +125,7 @@ class Config:
         self.AL_training_file = AL_training_file
 
         # Configuration dictionary for convenience
-        self.config_dict = {}
+        self.config_dict: Dict[str, Any] = {}
         self.set_config_dict()
         self.update_config_dict()
 
