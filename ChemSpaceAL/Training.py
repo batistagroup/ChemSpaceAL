@@ -12,15 +12,6 @@ from ChemSpaceAL.Model import GPT
 import wandb
 from tqdm import tqdm
 
-# import pandas as pd
-# import re
-# from torch.nn import functional as F
-# import os
-
-# from ChemSpaceAL.Model import *
-# from ChemSpaceAL.Dataset import *
-# from ChemSpaceAL.Configuration import *
-
 # Setting seeds for reproducibility
 np.random.seed(42)
 torch.manual_seed(42)
