@@ -266,7 +266,7 @@ class Config:
             if wandb_project_name is None:
                 message += f"\n  . note: wandb_project_name and wandb_runname were not provided, you can ignore this message if you don't plan to log runs to wandb"
             else:
-                message +=f"\n    runs will be stored in the {self.model_config.train_params['wandb_project_name']} wandb project"
+                message += f"\n    runs will be stored in the {self.model_config.train_params['wandb_project_name']} wandb project"
                 message += f"\n    under the name {self.model_config.train_params['wandb_runname']}"
             print(message)
 
@@ -382,7 +382,6 @@ class ModelConfig:
         num_workers: int = 0,
         lr_decay: bool = True,
     ):
-
         # Model parameters
         # n_embed controls the dimensionality of the embedding vector for each character in the vocabulary
         self.n_embed = n_embed
@@ -412,7 +411,6 @@ class ModelConfig:
         # gpt_bias controls whether bias is enabled in the final MLP before a token prediction is made
         self.gpt_bias = gpt_bias
 
-
         # SophiaG parameters
         self.weight_decay = weight_decay
         self.betas = betas
@@ -441,7 +439,8 @@ class ModelConfig:
         block_size: int,
         num_warmup_tokens: int,
         total_num_tokens: int,
-        loss_ignore_index: int,):
+        loss_ignore_index: int,
+    ):
         self.vocab_size = vocab_size
         self.block_size = block_size
         self.num_warmup_tokens = num_warmup_tokens

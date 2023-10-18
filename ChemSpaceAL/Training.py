@@ -166,7 +166,10 @@ class Trainer:
                     good_model = True
 
             if good_model:
-                torch.save(self.model.state_dict(), self.model_config.train_params["save_model_weight"])
+                torch.save(
+                    self.model.state_dict(),
+                    self.model_config.train_params["save_model_weight"],
+                )
 
 
 def train_GPT(
@@ -251,6 +254,6 @@ def train_GPT(
         wandb=wandb if wandb.run is not None else None,
     )
     trainer.train()
-    if log_wandb: 
+    if log_wandb:
         wandb.finish()
     return model, trainer
