@@ -1,10 +1,3 @@
-# from rdkit import Chem
-# from rdkit.Chem import Fragments
-# from openpyxl import load_workbook
-
-# from .Dataset import SMILESDataset
-# from .Model import GPT, GPTConfig
-# from .Configuration import *
 import torch
 from torch.nn import functional as F
 import re
