@@ -1,7 +1,7 @@
 import torch
 from torch.nn import Module
 import os
-from typing import Union, Dict, Any, List, Tuple, Optional, Any, Set, Callable
+from typing import Union, Dict, Any, List, Tuple, Optional, Any, Set, Callable, cast
 from ChemSpaceAL.InitializeWorkspace import FOLDER_STRUCTURE as fldr_struc
 import textwrap
 from rdkit.Chem import Descriptors
@@ -86,6 +86,7 @@ class Config:
         "force_number_filtered": "unique canonical smiles that pass filters",
     }
     filter_options: Set[str] = {"ADMET", "ADMET+FGs", "FGs"}
+    supported_descriptors: Set[str] = {"mix", "mqn", "mixmqn"}
 
     def __init__(
         self,
@@ -104,6 +105,9 @@ class Config:
     ):
         self.base_path = base_path
         self.base_sep_count = base_path.count(os.sep)
+        self.rel_path = lambda path: os.sep.join(
+            path.split(os.sep)[self.base_sep_count :]
+        )
         self.cycle_prefix = cycle_prefix
         self.al_iteration = al_iteration
         self.cycle_suffix = cycle_suffix
@@ -131,6 +135,11 @@ class Config:
             "generation_metrics_fname": None,
             "filtered_smiles_fname": None,
             "al_train_fname": None,
+            "path_to_descriptors": None,
+            "path_to_pca": None,
+            "path_to_kmeans": None,
+            "path_to_clusters": None,
+            "path_to_sampled": None,
         }
         self.model_config = ModelConfig()
 
@@ -403,10 +412,11 @@ class Config:
                 message += (
                     f"\n    the following filters will be applied: {force_filters}"
                 )
+            row_format = "\n    {:<50} {:<80}"
             rel_path = os.sep.join(
                 load_model_weight.split(os.sep)[self.base_sep_count :]
             )
-            message += f"\n    model weights will be loaded from: {rel_path}"
+            message += row_format.format("model weights will be loaded from:", rel_path)
             rel_path = os.sep.join(
                 dataset_desc_path.split(os.sep)[self.base_sep_count :]
             )
@@ -466,6 +476,83 @@ class Config:
             for path in self.previous_al_train_sets:
                 rel_path = os.sep.join(path.split(os.sep)[self.base_sep_count :])
                 message += f"\n     {rel_path}"
+            print(message)
+
+    def set_sampling_parameters(
+        self,
+        n_clusters: int,
+        samples_per_cluster: int,
+        pca_fname: str,
+        descriptors_mode: Optional[str] = None,
+    ):
+        if descriptors_mode is None:
+            descriptors_mode = "mix"
+        else:
+            assert (
+                descriptors_mode in self.supported_descriptors
+            ), f"Only {', '.join(self.supported_descriptors)} are supported as descriptors_mode"
+        n_samples = n_clusters * samples_per_cluster
+        self.sampling_parameters = {
+            "n_clusters": n_clusters,
+            "samples_per_cluster": samples_per_cluster,
+            "n_samples": n_samples,
+            "descriptors_mode": descriptors_mode,
+        }
+        self.cycle_temp_params["path_to_descriptors"] = (
+            self.sampling_desc_path
+            + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}.pkl"
+        )
+        self.cycle_temp_params["path_to_pca"] = self.sampling_pca_path + pca_fname
+        self.cycle_temp_params["path_to_kmeans"] = (
+            self.sampling_kmeans_path
+            + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}_k{n_clusters}.pkl"
+        )
+        self.cycle_temp_params["path_to_clusters"] = (
+            self.sampling_clusters_path
+            + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}_cluster_to_mols.pkl"
+        )
+        self.cycle_temp_params["path_to_sampled"] = (
+            self.scoring_candidate_path
+            + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}_sampled{n_samples}.csv"
+        )
+        if self.verbose:
+            message = f"""--- The following sampling parameters were set:
+    number of clusters: {n_clusters}
+    samples per cluster: {samples_per_cluster}
+    descriptors mode: {descriptors_mode}"""
+            row_format = "\n    {:<50} {:<80}"
+            message += row_format.format(
+                "descriptors will be saved to:",
+                self.rel_path(cast(str, self.cycle_temp_params["path_to_descriptors"])),
+            )
+            rel_path = os.sep.join(
+                cast(str, self.cycle_temp_params["path_to_pca"]).split(os.sep)[
+                    self.base_sep_count :
+                ]
+            )
+            message += row_format.format("PCA will be loaded from:", rel_path)
+            rel_path = os.sep.join(
+                cast(str, self.cycle_temp_params["path_to_kmeans"]).split(os.sep)[
+                    self.base_sep_count :
+                ]
+            )
+            message += row_format.format("KMeans Objects will be saved to:", rel_path)
+            rel_path = os.sep.join(
+                cast(str, self.cycle_temp_params["path_to_clusters"]).split(os.sep)[
+                    self.base_sep_count :
+                ]
+            )
+            message += row_format.format(
+                "cluster to molecules mapping will be saved to:", rel_path
+            )
+            rel_path = os.sep.join(
+                cast(str, self.cycle_temp_params["path_to_sampled"]).split(os.sep)[
+                    self.base_sep_count :
+                ]
+            )
+            message += row_format.format(
+                "sampled molecules will be saved to:", rel_path
+            )
             print(message)
 
 
