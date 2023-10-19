@@ -311,18 +311,22 @@ class Config:
     number of epochs: {self.model_config.train_params['epochs']}
     learning rate: {self.model_config.train_params['learning_rate']}
     learning warmup enabled? {self.model_config.train_params['lr_warmup']}"""
-            row_format = "\n    {:<45} {:<80}"
+            row = "\n    {:<45} {:<80}"
             if (
                 lpath := self.model_config.train_params["load_model_weight"]
             ) is not None:
-                message += row_format.format(
+                message += row.format(
                     "model weights will be loaded from:", self.rel_path(lpath)
                 )
             if (
                 spath := self.model_config.train_params["save_model_weight"]
             ) is not None:
-                message += row_format.format("model weights will be saved to:", self.rel_path(spath))
-            message += row_format.format("dataset descriptors will be loaded from:", self.rel_path(desc_path))
+                message += row.format(
+                    "model weights will be saved to:", self.rel_path(spath)
+                )
+            message += row.format(
+                "dataset descriptors will be loaded from:", self.rel_path(desc_path)
+            )
             if wandb_project_name is None:
                 message += f"\n  . note: wandb_project_name and wandb_runname were not provided, you can ignore this message if you don't plan to log runs to wandb"
             else:
@@ -332,7 +336,7 @@ class Config:
 
     def set_generation_parameters(
         self,
-        target_criterium: str,
+        target_criterion: str,
         target_number: int = 10_000,
         batch_size: int = 64,
         temperature: float = 1.0,
@@ -343,16 +347,16 @@ class Config:
         dataset_desc_path: Optional[str] = None,
     ):
         assert (
-            target_criterium in self.target_to_description
-        ), f"Only {', '.join(self.target_to_description.keys())} are supported as target criterium"
+            target_criterion in self.target_to_description
+        ), f"Only {', '.join(self.target_to_description.keys())} are supported as target criterion"
         if force_filters is not None:
             assert (
                 force_filters in self.filter_options
             ), f"Only {', '.join(self.filter_options)} are supported as force_filters"
-        if target_criterium == "force_number_filtered":
+        if target_criterion == "force_number_filtered":
             assert (
                 force_filters is not None
-            ), "force_filters must be specified for force_number_filtered target criterium"
+            ), "force_filters must be specified for force_number_filtered target criterion"
 
         if restricted_fgs is None:
             restricted_fgs = RESTRICTED_FGS
@@ -393,7 +397,7 @@ class Config:
         self.model_config.generation_params.update(
             dict(
                 context="!",
-                target_criterium=target_criterium,
+                target_criterion=target_criterion,
                 target_number=target_number,
                 batch_size=batch_size,
                 temp=temperature,
@@ -406,36 +410,36 @@ class Config:
 
         if self.verbose:
             message = f"""--- The following generation parameters were set:
-    target number: {target_number} {self.target_to_description[target_criterium]}
+    target number: {target_number} {self.target_to_description[target_criterion]}
     batch size: {batch_size} & temperature: {temperature}"""
             if force_filters is not None:
                 message += (
                     f"\n    the following filters will be applied: {force_filters}"
                 )
-            row_format = "\n    {:<45} {:<80}"
-            message += row_format.format(
+            row = "\n    {:<45} {:<80}"
+            message += row.format(
                 "model weights will be loaded from:", self.rel_path(load_model_weight)
             )
-            message += row_format.format(
+            message += row.format(
                 "dataset descriptors will be loaded from:",
                 self.rel_path(dataset_desc_path),
             )
-            message += row_format.format(
+            message += row.format(
                 "generated completions will be saved to:",
                 self.rel_path(cast(str, self.cycle_temp_params["completions_fname"])),
             )
-            message += row_format.format(
+            message += row.format(
                 "unique canonic smiles will be saved to:",
                 self.rel_path(cast(str, self.cycle_temp_params["unique_smiles_fname"])),
             )
-            message += row_format.format(
+            message += row.format(
                 "generation metrics will be saved to:",
                 self.rel_path(
                     cast(str, self.cycle_temp_params["generation_metrics_fname"])
                 ),
             )
-            if target_criterium == "force_number_filtered":
-                message += row_format.format(
+            if target_criterion == "force_number_filtered":
+                message += row.format(
                     "filtered molecules will be saved to:",
                     self.rel_path(
                         cast(str, self.cycle_temp_params["filtered_smiles_fname"])
@@ -523,24 +527,24 @@ class Config:
     number of clusters: {n_clusters}
     samples per cluster: {samples_per_cluster}
     descriptors mode: {descriptors_mode}"""
-            row_format = "\n    {:<50} {:<80}"
-            message += row_format.format(
+            row = "\n    {:<50} {:<80}"
+            message += row.format(
                 "descriptors will be saved to:",
                 self.rel_path(cast(str, self.cycle_temp_params["path_to_descriptors"])),
             )
-            message += row_format.format(
+            message += row.format(
                 "PCA will be loaded from:",
                 self.rel_path(cast(str, self.cycle_temp_params["path_to_pca"])),
             )
-            message += row_format.format(
+            message += row.format(
                 "KMeans Objects will be saved to:",
                 self.rel_path(cast(str, self.cycle_temp_params["path_to_kmeans"])),
             )
-            message += row_format.format(
+            message += row.format(
                 "cluster to molecules mapping will be saved to:",
                 self.rel_path(cast(str, self.cycle_temp_params["path_to_clusters"])),
             )
-            message += row_format.format(
+            message += row.format(
                 "sampled molecules will be saved to:",
                 self.rel_path(cast(str, self.cycle_temp_params["path_to_sampled"])),
             )

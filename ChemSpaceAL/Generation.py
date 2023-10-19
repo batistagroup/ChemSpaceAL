@@ -127,7 +127,7 @@ def generate_smiles(config: Config):
         )
         y = sample(model, x, block_size, temperature=mconf.generation_params["temp"])
 
-        target_criterium = mconf.generation_params["target_criterium"]
+        target_criterion = mconf.generation_params["target_criterion"]
         force_filters = mconf.generation_params["force_filters"]
         if "ADMET" in force_filters:
             satisfies_admet = admet_checker(mconf.generation_params["admet_criteria"])
@@ -136,7 +136,7 @@ def generate_smiles(config: Config):
                 mconf.generation_params["restricted_fgs"]
             )
         for gen_mol in y:
-            if target_criterium == "force_number_completions":
+            if target_criterion == "force_number_completions":
                 pbar.update()
                 pbar.set_description(f"Generated {len(molecules_list)} completions")
             completion = "".join([dataset.itos[int(i)] for i in gen_mol])
@@ -149,7 +149,7 @@ def generate_smiles(config: Config):
             mol = get_mol(mol_string)
 
             if mol is not None:
-                if target_criterium == "force_number_unique":
+                if target_criterion == "force_number_unique":
                     pbar.update()
                     pbar.set_description(
                         f"Generated {len(molecules_set)} unique canonical smiles"
@@ -172,7 +172,7 @@ def generate_smiles(config: Config):
                         )
                         molecules_set_filtered.add(canonic_smile)
         target_number = mconf.generation_params["target_number"]
-        match target_criterium:
+        match target_criterion:
             case "force_number_completions":
                 if len(molecules_list) >= target_number:
                     break

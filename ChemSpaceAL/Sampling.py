@@ -2,14 +2,16 @@ import pandas as pd
 from tqdm import tqdm
 import rdkit
 from rdkit.Chem import Descriptors
+from rdkit.Chem import rdMolDescriptors
 import pickle
 from sklearn.cluster import KMeans
 import numpy as np
 
-from .Configuration import *
+from ChemSpaceAL.Configuration import Config
+from typing import Optional, Dict, List, Any
 
 
-def get_descriptors(config):
+def calculate_descriptors(config: Config, smiles_fname: Optional[str] = None):
     """Extract descriptors for molecules from SMILES data.
 
     Args:
@@ -18,31 +20,43 @@ def get_descriptors(config):
     Returns:
         pd.DataFrame: DataFrame containing descriptors for each molecule.
     """
-    # Load molecules data
-    gpt_mols = pd.read_csv(config["path_to_predicted"])
-    smiles_set = set(gpt_mols["smiles"].to_list())
+    if smiles_fname is None:
+        gen_params = config.model_config.generation_params
+        match gen_params["target_criterion"]:
+            case "force_number_unique":
+                assert (
+                    config.cycle_temp_params["unique_smiles_fname"] is not None
+                ), "please call .set_generation_parameters() or provide smiles_fname"
+                smiles_fname = config.cycle_temp_params["unique_smiles_fname"]
+            case "force_number_filtered":
+                assert (
+                    config.cycle_temp_params["filtered_smiles_fname"] is not None
+                ), "please call .set_generation_parameters() or provide smiles_fname"
+                smiles_fname = config.cycle_temp_params["filtered_smiles_fname"]
+    match config.sampling_parameters["descriptors_mode"]:
+        case "mix":
+            func = rdkit.Chem.Descriptors.CalcMolDescriptors
+        case "mqn":
+            func = rdMolDescriptors.MQNs_
 
+    smiles_set = set(pd.read_csv(smiles_fname)["smiles"])
     keySet = None
-    keyToData = {}
+    smileToData: Dict[str, List[Any]] = {}
     pbar = tqdm(smiles_set, total=len(smiles_set))
     for smile in pbar:
         mol = rdkit.Chem.MolFromSmiles(smile)
-        if not mol:
+        if mol is None:
             continue
-        # Calculate descriptors
-        mol_data = rdkit.Chem.Descriptors.CalcMolDescriptors(mol)
 
+        descriptors = func(mol)
         if keySet is None:
-            keySet = set(mol_data.keys())
-
+            keySet = set(descriptors.keys())
         for key in keySet:
-            keyToData.setdefault(key, []).append(mol_data[key])
-        keyToData.setdefault("smiles", []).append(smile)
+            smileToData.setdefault(key, []).append(descriptors[key])
+        smileToData.setdefault("smiles", []).append(smile)
 
-    gpt_df = pd.DataFrame(keyToData)
-    gpt_df.to_pickle(config["path_to_gen_mol_descriptors"])
-
-    return gpt_df
+    gpt_df = pd.DataFrame(smileToData)
+    gpt_df.to_pickle(config.cycle_temp_params["path_to_descriptors"])
 
 
 def project_into_pca_space(config):
