@@ -374,7 +374,7 @@ class Config:
         )
         self.cycle_temp_params["generation_metrics_fname"] = (
             self.generations_path
-            + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}_metrics.csv"
+            + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}_metrics.txt"
         )
         if force_filters is not None:
             self.cycle_temp_params["filtered_smiles_fname"] = (
@@ -436,6 +436,36 @@ class Config:
                 message += f"\n    The following functional groups will be restricted:"
                 joined_str = ", ".join(restricted_fgs)
                 message += f"\n    |    {textwrap.fill(joined_str, 80, subsequent_indent='    |    ')}"
+            print(message)
+
+    def set_previous_arrays(
+        self,
+        previously_scored_mols: Optional[List[str]] = None,
+        previous_al_train_sets: Optional[List[str]] = None,
+    ):
+        if previously_scored_mols is None:
+            previously_scored_mols = [
+                self.scoring_score_path
+                + f"{self.cycle_prefix}_al{i}_{self.cycle_suffix}.csv"
+                for i in range(0, self.al_iteration)
+            ]
+        if previous_al_train_sets is None:
+            previous_al_train_sets = [
+                self.al_train_path
+                + f"{self.cycle_prefix}_al{i}_{self.cycle_suffix}.csv"
+                for i in range(0, self.al_iteration)
+            ]
+        self.previously_scored_mols = previously_scored_mols
+        self.previous_al_train_sets = previous_al_train_sets
+        if self.verbose:
+            message = f"""--- The following previously scored molecules were set:"""
+            for path in self.previously_scored_mols:
+                rel_path = os.sep.join(path.split(os.sep)[self.base_sep_count :])
+                message += f"\n     {rel_path}"
+            message += f"""\n--- The following previously constructed Active Learning sets were set:"""
+            for path in self.previous_al_train_sets:
+                rel_path = os.sep.join(path.split(os.sep)[self.base_sep_count :])
+                message += f"\n     {rel_path}"
             print(message)
 
 

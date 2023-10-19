@@ -1,6 +1,5 @@
 # from rdkit import Chem
 # from rdkit.Chem import Fragments
-# import numpy as np
 # from openpyxl import load_workbook
 
 # from .Dataset import SMILESDataset
@@ -11,6 +10,7 @@ from torch.nn import functional as F
 import re
 from tqdm import tqdm
 import pandas as pd
+import numpy as np
 import rdkit
 from rdkit import Chem
 from rdkit.Chem import Fragments
@@ -19,7 +19,7 @@ from ChemSpaceAL.Model import GPT
 from ChemSpaceAL.Configuration import Config, AdmetDict
 from ChemSpaceAL.Dataset import SMILESDataset
 
-from typing import Set, List, Callable
+from typing import Set, List, Callable, Union, Optional, Any, Dict
 
 
 @torch.no_grad()
@@ -204,7 +204,7 @@ def generate_smiles(config: Config):
     # characterize_generated_molecules(config_dict, molecules_list)
 
 
-def get_mol(smile_string):
+def get_mol(smile_string: str) -> Union[None, rdkit.Chem.Mol]:
     """Get a molecule object from a SMILES string.
 
     Args:
@@ -224,14 +224,14 @@ def get_mol(smile_string):
 
 
 def check_novelty(
-    generated,
-    train_list,
-    sig_digs=3,
-    multiplier=100,
-    denominator=None,
-    subtracted=True,
-    show_work=False,
-):
+    comparison_set: Set[str],
+    reference_sets: List[Set[str]],
+    sig_digs: int = 3,
+    multiplier: int = 100,
+    denominator: Optional[int] = None,
+    subtracted: bool = True,
+    show_work: bool = False,
+) -> Union[str, float]:
     """Check novelty of generated molecules.
 
     Args:
@@ -242,13 +242,13 @@ def check_novelty(
     Returns:
         str or float: Novelty value or a formula (depending on show_work).
     """
-    total_train = set()
-    for train in train_list:
-        total_train = total_train | train
-    repeated = generated & total_train
+    combined_reference_set: Set[str] = set()
+    for r_set in reference_sets:
+        combined_reference_set = combined_reference_set | r_set
+    repeated = comparison_set & combined_reference_set
 
     if denominator is None:
-        denominator = len(generated)
+        denominator = len(comparison_set)
 
     # Formula to compute novelty
     value = (
@@ -268,7 +268,7 @@ def check_novelty(
         return out
 
 
-def dump_dic_to_text(dic, path, header=None):
+def dump_dic_to_text(dic: Dict[str, Any], path: str, header: Optional[str] = None):
     """Dump a dictionary to a text file.
 
     Args:
@@ -283,90 +283,49 @@ def dump_dic_to_text(dic, path, header=None):
             f.write(f"{key}: {value}\n")
 
 
-def export_metrics_to_workbook(metrics, config, fname):
-    """Export metrics to an Excel workbook.
-
-    Args:
-        metrics (dict): Metrics dictionary.
-        config (dict): Configuration dictionary.
-        fname (str): Filename.
-    """
-    metric_to_col = {
-        "generated": "B",
-        "valid": "C",
-        "unique": "D",
-        "validity": "E",
-        "% unique (rel. to generated)": "F",
-        "% unique (rel. to valid)": "G",
-        "% novelty (rel. to train set)": "H",
-        "% novelty (rel. to train+AL sets)": "I",
-        "% repetitions (from AL0 training set)": "J",
-        "% repetitions (from AL1 training set)": "K",
-        "% repetitions (from AL2 training set)": "L",
-        "% repetitions (from AL3 training set)": "M",
-        "% repetitions (from AL4 training set)": "N",
-        "% repetitions (from AL5 training set)": "O",
-        "% repetitions (from AL6 training set)": "P",
-        "% repetitions (from AL7 training set)": "Q",
-        "% repetitions (from scored from round 0)": "R",
-        "% repetitions (from scored from round 1)": "S",
-        "% repetitions (from scored from round 2)": "T",
-        "% repetitions (from scored from round 3)": "U",
-        "% repetitions (from scored from round 4)": "V",
-        "% repetitions (from scored from round 5)": "W",
-        "% repetitions (from scored from round 6)": "X",
-        "% repetitions (from scored from round 7)": "Y",
-        "% fraction of AL0 training set in generated": "Z",
-        "% fraction of AL1 training set in generated": "AA",
-        "% fraction of AL2 training set in generated": "AB",
-        "% fraction of AL3 training set in generated": "AC",
-        "% fraction of AL4 training set in generated": "AD",
-        "% fraction of AL5 training set in generated": "AE",
-        "% fraction of AL6 training set in generated": "AF",
-        "% fraction of AL7 training set in generated": "AG",
-        "% fraction of scored from round 0 in generated": "AH",
-        "% fraction of scored from round 1 in generated": "AI",
-        "% fraction of scored from round 2 in generated": "AJ",
-        "% fraction of scored from round 3 in generated": "AK",
-        "% fraction of scored from round 4 in generated": "AL",
-        "% fraction of scored from round 5 in generated": "AM",
-        "% fraction of scored from round 6 in generated": "AN",
-        "% fraction of scored from round 7 in generated": "AO",
-    }
-
-
-def characterize_generated_molecules(config_dict, molecules_list=None):
+def characterize_generated_molecules(config: Config):
     """Characterize generated molecules based on certain metrics.
 
     Args:
         config_dict (dict): Configuration parameters.
         molecules_list (list, optional): List of molecules. Defaults to None.
     """
-    completions = pd.read_csv(config_dict["path_to_completions"])["smiles"]
-    molecules_set = set(
-        pd.read_csv(config_dict["path_to_predicted_filtered"])["smiles"]
+    completions = pd.read_csv(config.cycle_temp_params["completions_fname"])["smiles"]
+    if config.model_config.generation_params["force_filters"] is not None:
+        key = "filtered_smiles_fname"
+    else:
+        key = "unique_smiles_fname"
+    molecules_set = set(pd.read_csv(config.cycle_temp_params[key])["smiles"])
+
+    molecules_list = []
+    for completion in tqdm(completions, total=len(completions)):
+        if completion[0] == "!" and completion[1] == "~":
+            completion = "!" + completion[2:]
+        if "~" not in completion:
+            continue
+        mol_string = completion[1 : completion.index("~")]
+        mol = get_mol(mol_string)
+        if mol is not None:
+            molecules_list.append(Chem.MolToSmiles(mol))
+
+    train_data = set(
+        pd.read_csv(config.pretrain_data_path + config.training_fname)[
+            config.smiles_key
+        ]
     )
-
-    if molecules_list is None:
-        molecules_list = []
-        for completion in tqdm(completions, total=len(completions)):
-            if completion[0] == "!" and completion[1] == "~":
-                completion = "!" + completion[2:]
-            if "~" not in completion:
-                continue
-            mol_string = completion[1 : completion.index("~")]
-            mol = get_mol(mol_string)
-            if mol is not None:
-                molecules_list.append(Chem.MolToSmiles(mol))
-
-    train_data = set(pd.read_csv(config_dict["train_path"])[config_dict["smiles_key"]])
+    assert (
+        config.previously_scored_mols is not None
+    ), "Please call .set_previous_arrays() on config before trying to characterize the generated molecules"
     scored_sets = {
         i: set(pd.read_csv(path)["smiles"])
-        for i, path in enumerate(config_dict["diffdock_scored_path_list"])
+        for i, path in enumerate(config.previously_scored_mols)
     }
+    assert (
+        config.previous_al_train_sets is not None
+    ), "Please call .set_previous_arrays() on config before trying to characterize the generated molecules"
     al_sets = {
         i: set(pd.read_csv(path)["smiles"])
-        for i, path in enumerate(config_dict["al_trainsets_path_list"])
+        for i, path in enumerate(config.previous_al_train_sets)
     }
 
     multiplier = 100
@@ -382,17 +341,21 @@ def characterize_generated_molecules(config_dict, molecules_list=None):
             multiplier * len(molecules_set) / len(molecules_list), 3
         ),
         "% novelty (rel. to train set)": check_novelty(
-            molecules_set, (train_data,), multiplier=multiplier
+            comparison_set=molecules_set,
+            reference_sets=[train_data],
+            multiplier=multiplier,
         ),
         "% novelty (rel. to train+AL sets)": check_novelty(
-            molecules_set, (train_data, *list(al_sets.values())), multiplier=multiplier
+            comparison_set=molecules_set,
+            reference_sets=[train_data, *list(al_sets.values())],
+            multiplier=multiplier,
         ),
     }
 
     for al_round, al_set in al_sets.items():
         metrics[f"% repetitions (from AL{al_round} training set)"] = check_novelty(
-            molecules_set,
-            (al_set,),
+            comparison_set=molecules_set,
+            reference_sets=[al_set],
             subtracted=False,
             multiplier=multiplier,
             show_work=True,
@@ -402,8 +365,8 @@ def characterize_generated_molecules(config_dict, molecules_list=None):
         metrics[
             f"% repetitions (from scored from round {score_round})"
         ] = check_novelty(
-            molecules_set,
-            (score_set,),
+            comparison_set=molecules_set,
+            reference_sets=[score_set],
             subtracted=False,
             multiplier=multiplier,
             show_work=True,
@@ -413,8 +376,8 @@ def characterize_generated_molecules(config_dict, molecules_list=None):
         metrics[
             f"% fraction of AL{al_round} training set in generated"
         ] = check_novelty(
-            molecules_set,
-            (al_set,),
+            comparison_set=molecules_set,
+            reference_sets=[al_set],
             subtracted=False,
             multiplier=multiplier,
             denominator=len(al_set),
@@ -425,15 +388,14 @@ def characterize_generated_molecules(config_dict, molecules_list=None):
         metrics[
             f"% fraction of scored from round {score_round} in generated"
         ] = check_novelty(
-            molecules_set,
-            (score_set,),
+            comparison_set=molecules_set,
+            reference_sets=[score_set],
             subtracted=False,
             multiplier=multiplier,
             denominator=len(score_set),
             show_work=True,
         )
-
-    dump_dic_to_text(metrics, config_dict["path_to_metrics"])
-    export_metrics_to_workbook(
-        metrics, config_dict, config_dict["generation_path"].split("/")[-1]
-    )
+    assert (
+        config.cycle_temp_params["generation_metrics_fname"] is not None
+    ), f"The name of the metrics file (generation_metrics_fname) was not initialized"
+    dump_dic_to_text(metrics, config.cycle_temp_params["generation_metrics_fname"])
