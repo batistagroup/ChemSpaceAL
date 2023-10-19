@@ -13,7 +13,10 @@ class SMILESDataset(Dataset):
     A custom Dataset class for handling SMILES (Simplified Molecular Input Line Entry System) strings.
     """
 
-    def __init__(
+    def __init__(self):
+        self.desc_only: bool
+
+    def _load_dataset(
         self,
         data: List[str],
         chars: List[str],
@@ -30,11 +33,6 @@ class SMILESDataset(Dataset):
             block_size: Size of the block for processing.
             len_data: Length of the data.
         """
-        self.desc_only: bool
-        if chars is None:
-            self.desc_only = True
-            return
-
         self.desc_only = False
         self.vocab = set(chars)
         self.vocab_size = len(chars)
@@ -71,6 +69,7 @@ class SMILESDataset(Dataset):
         Parameters:
             load_path: Path to load the descriptors from.
         """
+        self.desc_only = True
         with open(load_path, "r") as f:
             attr_dict = yaml.load(f, Loader=yaml.SafeLoader)
         self.__dict__.update(attr_dict)
@@ -114,7 +113,10 @@ class SMILESDataset(Dataset):
 
 
 def load_data(
-    config: Configuration.Config, mode: str, forced_block_size:Optional[int]=None, forced_vocab:Optional[List[str]]=None
+    config: Configuration.Config,
+    mode: str,
+    forced_block_size: Optional[int] = None,
+    forced_vocab: Optional[List[str]] = None,
 ):
     """
     Load data based on the provided configuration dictionary.
@@ -157,9 +159,7 @@ def load_data(
         )
         al_data = pd.read_csv(config.al_train_path + al_fname)
         smiles_iterators = [al_data[config.smiles_key].values]
-        desc_path = (
-            config.al_desc_path + al_fname.split(".")[0] + ".yaml"
-        )
+        desc_path = config.al_desc_path + al_fname.split(".")[0] + ".yaml"
     else:
         raise KeyError(
             f"Only 'pretraining' and 'active learning' modes are currently supported"
@@ -192,7 +192,8 @@ def load_data(
             "!" + smile + "~" + "<" * (max_len - 1 - len(regex.findall(smile.strip())))
             for smile in smiles
         ]
-        dataset = SMILESDataset(
+        dataset = SMILESDataset()
+        dataset._load_dataset(
             data=padded_data,
             chars=chars,
             block_size=max_len,

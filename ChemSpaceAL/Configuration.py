@@ -40,7 +40,8 @@ RESTRICTED_FGS: List[str] = [
     "fr_thiophene",
     "fr_phenol",
 ]
-FUNC_ADMET: Dict[str, Dict[str, Union[Callable, int, float]]] = {
+AdmetDict = Dict[str, Dict[str, Union[Callable, int, float]]]
+FUNC_ADMET: AdmetDict = {
     "MW": {"func": lambda mol: Descriptors.MolWt(mol), "lower": 100, "upper": 600},
     "nHA": {
         "func": lambda mol: Descriptors.NumHAcceptors(mol),
@@ -99,7 +100,7 @@ class Config:
         previously_scored_mols: Optional[List] = None,
         previous_al_train_sets: Optional[List] = None,
         verbose: bool = True,
-        regex_pattern: Optional[str] = REGEX_PATTERN,
+        regex_pattern: Optional[str] = None,
     ):
         self.base_path = base_path
         self.base_sep_count = base_path.count(os.sep)
@@ -118,7 +119,9 @@ class Config:
         self.previous_al_train_sets = previous_al_train_sets
 
         self.verbose = verbose
-        self.regex_pattern = regex_pattern
+        self.regex_pattern = (
+            regex_pattern if regex_pattern is not None else REGEX_PATTERN
+        )
 
         # Configuration dictionary for convenience
         # self.config_dict: Dict[str, Any] = {}
@@ -326,6 +329,7 @@ class Config:
         temperature: float = 1.0,
         force_filters: Optional[str] = None,
         restricted_fgs: Optional[List[str]] = None,
+        admet_criteria: Optional[AdmetDict] = None,
         load_model_weight: Optional[str] = None,
         dataset_desc_path: Optional[str] = None,
     ):
@@ -343,6 +347,8 @@ class Config:
 
         if restricted_fgs is None:
             restricted_fgs = RESTRICTED_FGS
+        if admet_criteria is None:
+            admet_criteria = FUNC_ADMET
         if load_model_weight is None:
             if (
                 load_model_weight := self.model_config.train_params["save_model_weight"]
@@ -356,7 +362,8 @@ class Config:
                 "desc_path" in self.model_config.generation_params
             ), f"dataset_desc_path wasn't provided"
             dataset_desc_path = self.model_config.generation_params["desc_path"]
-
+        else:
+            self.model_config.generation_params["desc_path"] = dataset_desc_path
         self.cycle_temp_params["completions_fname"] = (
             self.generations_path
             + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}_completions.csv"
@@ -383,6 +390,7 @@ class Config:
                 temp=temperature,
                 load_ckpt_path=load_model_weight,
                 restricted_fgs=restricted_fgs,
+                admet_criteria=admet_criteria,
                 force_filters=force_filters,
             )
         )
@@ -422,7 +430,7 @@ class Config:
                 message += f"\n    filtered molecules will be saved to: {os.sep.join(self.cycle_temp_params['filtered_smiles_fname'].split(os.sep)[self.base_sep_count :])}"
             if force_filters is not None and "ADMET" in force_filters:
                 message += f"\n    The following ADMET filters will be enforced:"
-                for descriptor, paramdic in FUNC_ADMET.items():
+                for descriptor, paramdic in admet_criteria.items():
                     message += f"\n    |    {descriptor} in range [{paramdic['lower']}, {paramdic['upper']}]"
             if force_filters is not None and "FGs" in force_filters:
                 message += f"\n    The following functional groups will be restricted:"
@@ -509,9 +517,9 @@ class ModelConfig:
         self,
         vocab_size: int,
         block_size: int,
-        num_warmup_tokens: int,
-        total_num_tokens: int,
-        loss_ignore_index: int,
+        num_warmup_tokens: Optional[int] = None,
+        total_num_tokens: Optional[int] = None,
+        loss_ignore_index: Optional[int] = None,
     ):
         self.vocab_size = vocab_size
         self.block_size = block_size

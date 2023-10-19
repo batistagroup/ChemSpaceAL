@@ -1,19 +1,31 @@
-import pandas as pd
+# from rdkit import Chem
+# from rdkit.Chem import Fragments
+# import numpy as np
+# from openpyxl import load_workbook
+
+# from .Dataset import SMILESDataset
+# from .Model import GPT, GPTConfig
+# from .Configuration import *
+import torch
+from torch.nn import functional as F
+import re
 from tqdm import tqdm
+import pandas as pd
+import rdkit
 from rdkit import Chem
 from rdkit.Chem import Fragments
-import numpy as np
-from openpyxl import load_workbook
-import re
-from torch.nn import functional as F
 
-from .Dataset import SMILESDataset
-from .Model import GPT, GPTConfig
-from .Configuration import *
+from ChemSpaceAL.Model import GPT
+from ChemSpaceAL.Configuration import Config, AdmetDict
+from ChemSpaceAL.Dataset import SMILESDataset
+
+from typing import Set, List, Callable
 
 
 @torch.no_grad()
-def sample(model, x, steps, temperature=1.0):
+def sample(
+    model: GPT, x: torch.Tensor, steps: int, temperature: float = 1.0
+) -> torch.Tensor:
     """Sample sequences from the model.
 
     Args:
@@ -37,7 +49,35 @@ def sample(model, x, steps, temperature=1.0):
     return x
 
 
-def generate_SMILES(config_dict):
+def restricted_fg_checker(restricted_fgs: List[str]) -> Callable:
+    def _check_mol(molecule: rdkit.Chem.Mol) -> bool:
+        for restricted_key in restricted_fgs:
+            method = getattr(Fragments, restricted_key)
+            if method(molecule) != 0:
+                return True
+        return False
+
+    return _check_mol
+
+
+def admet_checker(admet_criteria: AdmetDict) -> Callable:
+    def _check_mol(
+        molecule: rdkit.Chem.Mol,
+    ) -> bool:
+        for key, _dict in admet_criteria.items():
+            func = _dict["func"]
+            assert callable(
+                func
+            ), f"Expected a callable for criteria {key}, got {type(func)}"
+            val = func(molecule)
+            if val < _dict["lower"] or val > _dict["upper"]:
+                return False
+        return True
+
+    return _check_mol
+
+
+def generate_smiles(config: Config):
     """Generate SMILES strings using the model.
 
     Args:
@@ -46,82 +86,66 @@ def generate_SMILES(config_dict):
     Returns:
         None: The function saves the generated molecules to disk.
     """
-    # List of restricted functional groups
-    RESTRICTED_FGS = [
-        "fr_azide",
-        "fr_isocyan",
-        "fr_isothiocyan",
-        "fr_nitro",
-        "fr_nitro_arom",
-        "fr_nitro_arom_nonortho",
-        "fr_nitroso",
-        "fr_phos_acid",
-        "fr_phos_ester",
-        "fr_sulfonamd",
-        "fr_sulfone",
-        "fr_term_acetylene",
-        "fr_thiocyan",
-        "fr_prisulfonamd",
-        "fr_C_S",
-        "fr_Ndealkylation1",
-        "fr_Ndealkylation2",
-        "fr_azo",
-        "fr_diazo",
-        "fr_epoxide",
-    ]
-
-    # Regular expression pattern to match SMILES components
-    REGEX_PATTERN = r"(\[[^\]]+]|<|Br?|Cl?|N|O|S|P|F|I|b|c|n|o|s|p|\(|\)|\.|=|#|-|\+|\\|\/|:|~|@|@@|\?|>|!|~|\*|\$|\%[0-9]{2}|[0-9])"
-    regex = re.compile(REGEX_PATTERN)
-
+    regex = re.compile(config.regex_pattern)
+    mconf = config.model_config
+    if config.verbose:
+        print(f"--- Starting generation")
+        print(f"    Loading dataset descriptors ...")
     dataset = SMILESDataset()
-    dataset.load_desc_attributes(config_dict["descriptors_path"])
-
-    mconf = GPTConfig(dataset.vocab_size, dataset.block_size, **config_dict)
-    model = GPT(mconf).to(config_dict["device"])
-    if config_dict["mode"] == "Pretraining":
-        model.load_state_dict(
-            torch.load(
-                config_dict["pretraining_checkpoint_path"],
-                map_location=torch.device(config_dict["device"]),
-            )
+    dataset.load_desc_attributes(mconf.generation_params["desc_path"])
+    if config.verbose:
+        print(f"    Creating a model and loading weights ...")
+    mconf.set_dataset_attributes(
+        vocab_size=dataset.vocab_size, block_size=dataset.block_size
+    )
+    model = GPT(mconf).to(mconf.device)
+    model.load_state_dict(
+        torch.load(
+            mconf.generation_params["load_ckpt_path"],
+            map_location=torch.device(mconf.device),
         )
-    elif config_dict["mode"] == "Active Learning":
-        model.load_state_dict(
-            torch.load(
-                config_dict["al_checkpoint_path"],
-                map_location=torch.device(config_dict["device"]),
-            )
-        )
-    model.to(config_dict["device"])
+    )
+    model.to(mconf.device)
+    torch.compile(model)
 
     block_size = model.get_block_size()
     assert (
         block_size == dataset.block_size
     ), "Warning: model block size and dataset block size are different"
 
-    molecules_list, molecules_set = [], set()
-    molecules_set_filtered = set()
+    molecules_list: List[str] = []
+    molecules_set: Set[str] = set()
+    molecules_set_filtered: Set[str] = set()
     completions = []
     pbar = tqdm()
-
+    if config.verbose:
+        print(f"    Starting generation ...")
     while True:
-        pbar.update()
-        pbar.set_description(f"generated {len(molecules_set)} unique molecules")
         x = (
             torch.tensor(
                 [
                     dataset.stoi[s]
-                    for s in regex.findall(config_dict["generation_context"])
+                    for s in regex.findall(mconf.generation_params["context"])
                 ],
                 dtype=torch.long,
             )[None, ...]
-            .repeat(config_dict["gen_batch_size"], 1)
-            .to(config_dict["device"])
+            .repeat(mconf.generation_params["batch_size"], 1)
+            .to(mconf.device)
         )
-        y = sample(model, x, block_size, temperature=config_dict["inference_temp"])
+        y = sample(model, x, block_size, temperature=mconf.generation_params["temp"])
 
+        target_criterium = mconf.generation_params["target_criterium"]
+        force_filters = mconf.generation_params["force_filters"]
+        if "ADMET" in force_filters:
+            satisfies_admet = admet_checker(mconf.generation_params["admet_criteria"])
+        if "FGs" in force_filters:
+            contains_restricted_fg = restricted_fg_checker(
+                mconf.generation_params["restricted_fgs"]
+            )
         for gen_mol in y:
+            if target_criterium == "force_number_completions":
+                pbar.update()
+                pbar.set_description(f"Generated {len(molecules_list)} completions")
             completion = "".join([dataset.itos[int(i)] for i in gen_mol])
             completions.append(completion)
             if completion[0] == "!" and completion[1] == "~":
@@ -132,30 +156,52 @@ def generate_SMILES(config_dict):
             mol = get_mol(mol_string)
 
             if mol is not None:
-                molecules_list.append(Chem.MolToSmiles(mol))
-                molecules_set.add(Chem.MolToSmiles(mol))
-                for restricted_key in RESTRICTED_FGS:
-                    method = getattr(Fragments, restricted_key)
-                    if method(mol) != 0:
-                        break
-                else:
-                    molecules_set_filtered.add(Chem.MolToSmiles(mol))
-
-        if len(molecules_set_filtered) >= config_dict["gen_size"]:
-            break
-
+                if target_criterium == "force_number_unique":
+                    pbar.update()
+                    pbar.set_description(
+                        f"Generated {len(molecules_set)} unique canonical smiles"
+                    )
+                canonic_smile = Chem.MolToSmiles(mol)
+                molecules_list.append(canonic_smile)
+                molecules_set.add(canonic_smile)
+                if force_filters is not None:
+                    mol_passes = True
+                    if "ADMET" in force_filters:
+                        if not satisfies_admet(mol):
+                            mol_passes = False
+                    if "FGs" in force_filters:
+                        if contains_restricted_fg(mol):
+                            mol_passes = False
+                    if mol_passes:
+                        pbar.update()
+                        pbar.set_description(
+                            f"Generated {len(molecules_set_filtered)} unique canonical smiles that pass filters"
+                        )
+                        molecules_set_filtered.add(canonic_smile)
+        target_number = mconf.generation_params["target_number"]
+        match target_criterium:
+            case "force_number_completions":
+                if len(molecules_list) >= target_number:
+                    break
+            case "force_number_unique":
+                if len(molecules_set) >= target_number:
+                    break
+            case "force_number_filtered":
+                if len(molecules_set_filtered) >= target_number:
+                    break
     pbar.close()
 
     completions_df = pd.DataFrame({"smiles": completions})
-    completions_df.to_csv(config_dict["path_to_completions"])
+    completions_df.to_csv(config.cycle_temp_params["completions_fname"])
 
     molecules_df = pd.DataFrame({"smiles": list(molecules_set)})
-    molecules_df.to_csv(config_dict["path_to_predicted"])
+    molecules_df.to_csv(config.cycle_temp_params["unique_smiles_fname"])
 
-    molecules_filtered_df = pd.DataFrame({"smiles": list(molecules_set_filtered)})
-    molecules_filtered_df.to_csv(config_dict["path_to_predicted_filtered"])
+    if force_filters is not None:
+        molecules_filtered_df = pd.DataFrame({"smiles": list(molecules_set_filtered)})
+        molecules_filtered_df.to_csv(config.cycle_temp_params["filtered_smiles_fname"])
 
-    characterize_generated_molecules(config_dict, molecules_list)
+    # characterize_generated_molecules(config_dict, molecules_list)
 
 
 def get_mol(smile_string):
