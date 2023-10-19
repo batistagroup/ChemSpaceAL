@@ -311,18 +311,18 @@ class Config:
     number of epochs: {self.model_config.train_params['epochs']}
     learning rate: {self.model_config.train_params['learning_rate']}
     learning warmup enabled? {self.model_config.train_params['lr_warmup']}"""
+            row_format = "\n    {:<45} {:<80}"
             if (
                 lpath := self.model_config.train_params["load_model_weight"]
             ) is not None:
-                rel_path = os.sep.join(lpath.split(os.sep)[self.base_sep_count :])
-                message += f"\n    model weights will be loaded from {rel_path}"
+                message += row_format.format(
+                    "model weights will be loaded from:", self.rel_path(lpath)
+                )
             if (
                 spath := self.model_config.train_params["save_model_weight"]
             ) is not None:
-                rel_path = os.sep.join(spath.split(os.sep)[self.base_sep_count :])
-                message += f"\n    model weights will be saved to {rel_path}"
-            rel_path = os.sep.join(desc_path.split(os.sep)[self.base_sep_count :])
-            message += f"\n    dataset descriptors will be loaded from {rel_path}"
+                message += row_format.format("model weights will be saved to:", self.rel_path(spath))
+            message += row_format.format("dataset descriptors will be loaded from:", self.rel_path(desc_path))
             if wandb_project_name is None:
                 message += f"\n  . note: wandb_project_name and wandb_runname were not provided, you can ignore this message if you don't plan to log runs to wandb"
             else:
@@ -412,32 +412,35 @@ class Config:
                 message += (
                     f"\n    the following filters will be applied: {force_filters}"
                 )
-            row_format = "\n    {:<50} {:<80}"
-            rel_path = os.sep.join(
-                load_model_weight.split(os.sep)[self.base_sep_count :]
+            row_format = "\n    {:<45} {:<80}"
+            message += row_format.format(
+                "model weights will be loaded from:", self.rel_path(load_model_weight)
             )
-            message += row_format.format("model weights will be loaded from:", rel_path)
-            rel_path = os.sep.join(
-                dataset_desc_path.split(os.sep)[self.base_sep_count :]
+            message += row_format.format(
+                "dataset descriptors will be loaded from:",
+                self.rel_path(dataset_desc_path),
             )
-            message += f"\n    dataset descriptors will be loaded from: {rel_path}"
-            assert (
-                self.cycle_temp_params["completions_fname"] is not None
-            ), "completions_fname is None"
-            message += f"\n    generated completions will be saved to: {os.sep.join(self.cycle_temp_params['completions_fname'].split(os.sep)[self.base_sep_count :])}"
-            assert (
-                self.cycle_temp_params["unique_smiles_fname"] is not None
-            ), "unique_smiles_fname is None"
-            message += f"\n    unique canonic smiles will be saved to: {os.sep.join(self.cycle_temp_params['unique_smiles_fname'].split(os.sep)[self.base_sep_count :])}"
-            assert (
-                self.cycle_temp_params["generation_metrics_fname"] is not None
-            ), "generation_metrics_fname is None"
-            message += f"\n    generation metrics will be saved to: {os.sep.join(self.cycle_temp_params['generation_metrics_fname'].split(os.sep)[self.base_sep_count :])}"
+            message += row_format.format(
+                "generated completions will be saved to:",
+                self.rel_path(cast(str, self.cycle_temp_params["completions_fname"])),
+            )
+            message += row_format.format(
+                "unique canonic smiles will be saved to:",
+                self.rel_path(cast(str, self.cycle_temp_params["unique_smiles_fname"])),
+            )
+            message += row_format.format(
+                "generation metrics will be saved to:",
+                self.rel_path(
+                    cast(str, self.cycle_temp_params["generation_metrics_fname"])
+                ),
+            )
             if target_criterium == "force_number_filtered":
-                assert (
-                    self.cycle_temp_params["filtered_smiles_fname"] is not None
-                ), "filtered_smiles_fname is None"
-                message += f"\n    filtered molecules will be saved to: {os.sep.join(self.cycle_temp_params['filtered_smiles_fname'].split(os.sep)[self.base_sep_count :])}"
+                message += row_format.format(
+                    "filtered molecules will be saved to:",
+                    self.rel_path(
+                        cast(str, self.cycle_temp_params["filtered_smiles_fname"])
+                    ),
+                )
             if force_filters is not None and "ADMET" in force_filters:
                 message += f"\n    The following ADMET filters will be enforced:"
                 for descriptor, paramdic in admet_criteria.items():
@@ -525,33 +528,21 @@ class Config:
                 "descriptors will be saved to:",
                 self.rel_path(cast(str, self.cycle_temp_params["path_to_descriptors"])),
             )
-            rel_path = os.sep.join(
-                cast(str, self.cycle_temp_params["path_to_pca"]).split(os.sep)[
-                    self.base_sep_count :
-                ]
-            )
-            message += row_format.format("PCA will be loaded from:", rel_path)
-            rel_path = os.sep.join(
-                cast(str, self.cycle_temp_params["path_to_kmeans"]).split(os.sep)[
-                    self.base_sep_count :
-                ]
-            )
-            message += row_format.format("KMeans Objects will be saved to:", rel_path)
-            rel_path = os.sep.join(
-                cast(str, self.cycle_temp_params["path_to_clusters"]).split(os.sep)[
-                    self.base_sep_count :
-                ]
+            message += row_format.format(
+                "PCA will be loaded from:",
+                self.rel_path(cast(str, self.cycle_temp_params["path_to_pca"])),
             )
             message += row_format.format(
-                "cluster to molecules mapping will be saved to:", rel_path
-            )
-            rel_path = os.sep.join(
-                cast(str, self.cycle_temp_params["path_to_sampled"]).split(os.sep)[
-                    self.base_sep_count :
-                ]
+                "KMeans Objects will be saved to:",
+                self.rel_path(cast(str, self.cycle_temp_params["path_to_kmeans"])),
             )
             message += row_format.format(
-                "sampled molecules will be saved to:", rel_path
+                "cluster to molecules mapping will be saved to:",
+                self.rel_path(cast(str, self.cycle_temp_params["path_to_clusters"])),
+            )
+            message += row_format.format(
+                "sampled molecules will be saved to:",
+                self.rel_path(cast(str, self.cycle_temp_params["path_to_sampled"])),
             )
             print(message)
 
