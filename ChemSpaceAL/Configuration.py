@@ -1,9 +1,76 @@
 import torch
 from torch.nn import Module
 import os
-from typing import Union, Dict, Any, List, Tuple, Optional, Any
-from .InitializeWorkspace import FOLDER_STRUCTURE as fldr_struc
-from pprint import pprint
+from typing import Union, Dict, Any, List, Tuple, Optional, Any, Set, Callable
+from ChemSpaceAL.InitializeWorkspace import FOLDER_STRUCTURE as fldr_struc
+import textwrap
+from rdkit.Chem import Descriptors
+from rdkit import Chem
+
+REGEX_PATTERN: str = "(\[[^\]]+]|<|Br?|Cl?|N|O|S|P|F|I|b|c|n|o|s|p|\(|\)|\.|=|#|-|\+|\\\\|\/|:|~|@|@@|\?|>|!|~|\*|\$|\%[0-9]{2}|[0-9])"
+RESTRICTED_FGS: List[str] = [
+    "fr_azide",
+    "fr_isocyan",
+    "fr_isothiocyan",
+    "fr_nitro",
+    "fr_nitro_arom",
+    "fr_nitro_arom_nonortho",
+    "fr_nitroso",
+    "fr_phos_acid",
+    "fr_phos_ester",
+    "fr_sulfonamd",
+    "fr_sulfone",
+    "fr_term_acetylene",
+    "fr_thiocyan",
+    "fr_prisulfonamd",
+    "fr_C_S",
+    "fr_azo",
+    "fr_diazo",
+    "fr_epoxide",
+    "fr_ester",
+    "fr_COO2",
+    "fr_Imine",
+    "fr_N_O",
+    "fr_SH",
+    "fr_aldehyde",
+    "fr_dihydropyridine",
+    "fr_hdrzine",
+    "fr_hdrzone",
+    "fr_ketone",
+    "fr_thiophene",
+    "fr_phenol",
+]
+FUNC_ADMET: Dict[str, Dict[str, Union[Callable, int, float]]] = {
+    "MW": {"func": lambda mol: Descriptors.MolWt(mol), "lower": 100, "upper": 600},
+    "nHA": {
+        "func": lambda mol: Descriptors.NumHAcceptors(mol),
+        "lower": 0,
+        "upper": 12,
+    },
+    "nHD": {"func": lambda mol: Descriptors.NumHDonors(mol), "lower": 0, "upper": 7},
+    "nRot": {
+        "func": lambda mol: Descriptors.NumRotatableBonds(mol),
+        "lower": 0,
+        "upper": 11,
+    },
+    "nRing": {
+        "func": lambda mol: Descriptors.RingCount(mol),
+        "lower": 0,
+        "upper": 6,
+    },  # AdMET recommends [0,6], QED recommends >0
+    "nHet": {
+        "func": lambda mol: Descriptors.NumHeteroatoms(mol),
+        "lower": 1,
+        "upper": 15,
+    },
+    "fChar": {"func": lambda mol: Chem.GetFormalCharge(mol), "lower": -4, "upper": 4},
+    "TPSA": {"func": lambda mol: Descriptors.TPSA(mol), "lower": 0, "upper": 140},
+    "logP": {
+        "func": lambda mol: Descriptors.MolLogP(mol),
+        "lower": -0.4,
+        "upper": 6.5,
+    },  # AdMET Lab recommends [0,3], [-0.4, 5.6] from Ghose
+}
 
 
 class Config:
@@ -11,6 +78,13 @@ class Config:
     Configuration class for ChemSpace Active Learning.
     Holds various settings and parameters required for the ChemSpaceAL workflow.
     """
+
+    target_to_description: Dict[str, str] = {
+        "force_number_completions": "generations",
+        "force_number_unique": "unique canonical smiles",
+        "force_number_filtered": "unique canonical smiles that pass filters",
+    }
+    filter_options: Set[str] = {"ADMET", "ADMET+FGs", "FGs"}
 
     def __init__(
         self,
@@ -21,38 +95,12 @@ class Config:
         training_fname: str,
         validation_fname: str,
         smiles_key: str = "smiles",
-        # mode: str = "Pretraining",
         slice_data: Union[bool, int] = False,
-        # pretraining_checkpoint_file: str = "pretraining_checkpoint.pt",
-        # al_checkpoint_file: str = "al_checkpoint.pt",
-        # project_name: str = "ChemSpaceAL",
-        # wandb_runname: str = "pretraining_run",
-        context: str = "!",
-        gen_size: int = 10_000,
-        gen_batch_size: int = 64,
-        temperature: float = 1.0,
-        # completions_file: str = "completions.csv",
-        # predicted_file: str = "predicted.csv",
-        # predicted_filtered_file: str = "filtered_predicted.csv",
         previously_scored_mols: Optional[List] = None,
         previous_al_train_sets: Optional[List] = None,
-        # metrics_file: str = "metrics.txt",
-        # gen_mol_descriptors_file: str = "generated_molecules_descriptors.csv",
-        # pca_file: str = "pca.pkl",
-        # kmeans_save_file: str = "kmeans.pkl",
-        # clusters_save_file: str = "clusters.pkl",
-        # samples_save_file: str = "samples.pkl",
-        # diffdock_save_file: str = "diffdock.pkl",
-        # protein_file: str = "protein.pdb",
-        # diffdock_samples_file: str = "sampled.csv",
-        # scored_file: str = "scored.csv",
-        # good_mols_file: str = "good_mols.csv",
-        # AL_set_save_file: str = "AL_training_set.csv",
-        # AL_training_file: str = "AL_training_set.csv",
         verbose: bool = True,
+        regex_pattern: Optional[str] = REGEX_PATTERN,
     ):
-        # Setting model and training configurations
-
         self.base_path = base_path
         self.base_sep_count = base_path.count(os.sep)
         self.cycle_prefix = cycle_prefix
@@ -66,21 +114,19 @@ class Config:
         self.slice_data = slice_data
         self.smiles_key = smiles_key
 
-        # Generation Parameters
-        self.context = context
-        self.gen_size = gen_size
-        self.gen_batch_size = gen_batch_size
-        self.temperature = temperature
-
         self.previously_scored_mols = previously_scored_mols
         self.previous_al_train_sets = previous_al_train_sets
 
         self.verbose = verbose
-        self.regex_pattern = "(\[[^\]]+]|<|Br?|Cl?|N|O|S|P|F|I|b|c|n|o|s|p|\(|\)|\.|=|#|-|\+|\\\\|\/|:|~|@|@@|\?|>|!|~|\*|\$|\%[0-9]{2}|[0-9])"
+        self.regex_pattern = regex_pattern
 
         # Configuration dictionary for convenience
         # self.config_dict: Dict[str, Any] = {}
         self.cycle_temp_params: Dict[str, Optional[str]] = {
+            "completions_fname": None,
+            "unique_smiles_fname": None,
+            "generation_metrics_fname": None,
+            "filtered_smiles_fname": None,
             "al_train_fname": None,
         }
         self.model_config = ModelConfig()
@@ -186,15 +232,15 @@ class Config:
         learning_rate: Optional[float] = None,
         lr_warmup: Optional[bool] = None,
         epochs: Optional[int] = None,
-        # al_fname: Optional[str] = None,
+        al_fname: Optional[str] = None,
         load_weight_path: Optional[str] = None,
         wandb_project_name: Optional[str] = None,
         wandb_runname: Optional[str] = None,
     ):
         if mode == "Pretraining":
-            # desc_path = (
-            #     self.pretrain_desc_path + self.training_fname.split(".")[0] + "yaml"
-            # )
+            desc_path = (
+                self.pretrain_desc_path + self.training_fname.split(".")[0] + ".yaml"
+            )
             save_model_weights = (
                 self.pretrain_weight_path
                 + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}.pt"
@@ -207,16 +253,16 @@ class Config:
                 if load_weight_path is not None
                 else None,
                 "save_model_weight": save_model_weights,
-                # "descriptors_path": desc_path,
             }
+            self.model_config.generation_params["desc_path"] = desc_path
 
         elif mode == "Active Learning":
-            # if al_fname is None:
-            #     if (al_fname := self.cycle_temp_params["al_fname"]) is None:
-            #         raise ValueError(
-            #             "The name of the Active Learning Set isn't stored in current session, please provide through al_fname argument"
-            #         )
-            # desc_path = self.al_desc_path + al_fname.split(".")[0] + "yaml"
+            if al_fname is None:
+                if (al_fname := self.cycle_temp_params["al_fname"]) is None:
+                    raise ValueError(
+                        "The name of the Active Learning Set isn't stored in current session, please provide through al_fname argument"
+                    )
+            desc_path = self.al_desc_path + al_fname.split(".")[0] + ".yaml"
             assert (
                 self.al_iteration >= 1
             ), "al_iteration cannot be less than 1 in Active Learning mode"
@@ -234,8 +280,8 @@ class Config:
                 "lr_warmup": lr_warmup if lr_warmup is not None else False,
                 "load_model_weight": load_model_weights,
                 "save_model_weight": save_model_weights,
-                # "descriptors_path": base_active_learning_descriptors + descriptors_file,
             }
+            self.model_config.generation_params["desc_path"] = desc_path
 
         else:
             raise KeyError(
@@ -263,6 +309,8 @@ class Config:
             ) is not None:
                 rel_path = os.sep.join(spath.split(os.sep)[self.base_sep_count :])
                 message += f"\n    model weights will be saved to {rel_path}"
+            rel_path = os.sep.join(desc_path.split(os.sep)[self.base_sep_count :])
+            message += f"\n    dataset descriptors will be loaded from {rel_path}"
             if wandb_project_name is None:
                 message += f"\n  . note: wandb_project_name and wandb_runname were not provided, you can ignore this message if you don't plan to log runs to wandb"
             else:
@@ -270,94 +318,117 @@ class Config:
                 message += f"\n    under the name {self.model_config.train_params['wandb_runname']}"
             print(message)
 
-        # print(self.pretrain_data_path)
-        # print(self.pretrain_weight_path)
-        # print(self.pretrain_desc_path)
-        # print(self.generations_path)
-        # print(self.sampling_desc_path)
-        # print(self.sampling_pca_path)
-        # print(self.sampling_kmeans_path)
-        # print(self.sampling_clusters_path)
-        # print(self.scoring_target_path)
-        # print(self.scoring_candidate_path)
-        # print(self.scoring_pose_path)
-        # print(self.scoring_score_path)
-        # print(self.al_train_path)
-        # print(self.al_desc_path)
-        # print(self.al_weight_path)
+    def set_generation_parameters(
+        self,
+        target_criterium: str,
+        target_number: int = 10_000,
+        batch_size: int = 64,
+        temperature: float = 1.0,
+        force_filters: Optional[str] = None,
+        restricted_fgs: Optional[List[str]] = None,
+        load_model_weight: Optional[str] = None,
+        dataset_desc_path: Optional[str] = None,
+    ):
+        assert (
+            target_criterium in self.target_to_description
+        ), f"Only {', '.join(self.target_to_description.keys())} are supported as target criterium"
+        if force_filters is not None:
+            assert (
+                force_filters in self.filter_options
+            ), f"Only {', '.join(self.filter_options)} are supported as force_filters"
+        if target_criterium == "force_number_filtered":
+            assert (
+                force_filters is not None
+            ), "force_filters must be specified for force_number_filtered target criterium"
 
-    #     self.config_dict = {
-    #         "mode": self.mode,
-    #         "train_path": base_pretraining + self.training_fname,
-    #         "slice_data": self.slice_data,
-    #         "val_path": base_pretraining + self.validation_fname,
-    #         "n_head": self.n_head,
-    #         "n_embed": self.n_embed,
-    #         "att_bias": self.att_bias,
-    #         "att_drop_rate": self.att_drop_rate,
-    #         "do_flash": self.do_flash,
-    #         "ff_mult": self.ff_mult,
-    #         "doGELU": self.doGELU,
-    #         "gpt_drop_rate": self.gpt_drop_rate,
-    #         "n_layer": self.n_layer,
-    #         "gpt_bias": self.gpt_bias,
-    #         "weight_decay": self.weight_decay,
-    #         "betas": self.betas,
-    #         "rho": self.rho,
-    #         "batch_size": self.batch_size,
-    #         "num_workers": self.num_workers,
-    #         "device": self.device,
-    #         "lr_decay": self.lr_decay,
-    #         "pretraining_checkpoint_path": base_model_parameters
-    #         + self.pretraining_checkpoint_file,
-    #         "al_checkpoint_path": base_model_parameters + self.al_checkpoint_file,
-    #         "wandb_project": self.project_name,
-    #         "wandb_runname": self.wandb_runname,
-    #         "generation_context": self.context,
-    #         "gen_batch_size": self.gen_batch_size,
-    #         "inference_temp": self.temp,
-    #         "gen_size": self.gen_size,
-    #         "path_to_completions": base_gen_path + self.completions_file,
-    #         "path_to_predicted": base_gen_path + self.predicted_file,
-    #         "path_to_predicted_filtered": base_gen_path + self.predicted_filtered_file,
-    #         "base_path": self.base_path,
-    #         "smiles_key": self.smiles_key,
-    #         "diffdock_scored_path_list": [
-    #             f"{self.base_path}{base_scoring}{i}"
-    #             for i in self.previously_scored_mols
-    #         ],
-    #         "al_trainsets_path_list": [
-    #             f"{self.base_path}{base_active_learning}/{i}"
-    #             for i in self.previous_al_train_sets
-    #         ],
-    #         "path_to_metrics": base_gen_path + self.metrics_file,
-    #         "generation_path": base_gen_path,
-    #         "path_to_gen_mol_descriptors": base_gen_path
-    #         + self.gen_mol_descriptors_file,
-    #         "path_to_pca": base_sampling_path + self.pca_file,
-    #         "kmeans_save_path": base_sampling_path + self.kmeans_save_file,
-    #         "clusters_save_path": base_sampling_path + self.clusters_save_file,
-    #         "samples_save_path": base_sampling_path + self.samples_save_file,
-    #         "diffdock_save_path": base_sampling_path + self.diffdock_save_file,
-    #         "diffdock_results_path": base_diffdock_path + "poses/",
-    #         "protein_path": self.base_path + self.protein_file,
-    #         "diffdock_samples_path": base_diffdock_path + self.diffdock_samples_file,
-    #         "path_to_scored": base_diffdock_path + self.scored_file,
-    #         "path_to_good_mols": base_diffdock_path + self.good_mols_file,
-    #         "AL_set_save_path": base_active_learning + self.AL_set_save_file,
-    #         "AL_training_path": base_active_learning + self.AL_training_file,
-    #     }
+        if restricted_fgs is None:
+            restricted_fgs = RESTRICTED_FGS
+        if load_model_weight is None:
+            if (
+                load_model_weight := self.model_config.train_params["save_model_weight"]
+            ) is None:
+                raise ValueError(
+                    "No model weight path was provided, please provide through load_model_weight argument"
+                )
 
-    # def update_config_dict(self):
-    #     """Update the configuration dictionary based on the mode."""
+        if dataset_desc_path is None:
+            assert (
+                "desc_path" in self.model_config.generation_params
+            ), f"dataset_desc_path wasn't provided"
+            dataset_desc_path = self.model_config.generation_params["desc_path"]
 
-    #     # Base paths for Pretraining and Active Learning
-    #     base_pretraining_descriptors = (
-    #         self.base_path + "1. Pretraining/dataset_descriptors/"
-    #     )
-    #     base_active_learning_descriptors = (
-    #         self.base_path + "6. ActiveLearning/dataset_descriptors/"
-    #     )
+        self.cycle_temp_params["completions_fname"] = (
+            self.generations_path
+            + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}_completions.csv"
+        )
+        self.cycle_temp_params["unique_smiles_fname"] = (
+            self.generations_path
+            + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}_unique_smiles.csv"
+        )
+        self.cycle_temp_params["generation_metrics_fname"] = (
+            self.generations_path
+            + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}_metrics.csv"
+        )
+        if force_filters is not None:
+            self.cycle_temp_params["filtered_smiles_fname"] = (
+                self.generations_path
+                + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}_filtered_smiles.csv"
+            )
+        self.model_config.generation_params.update(
+            dict(
+                context="!",
+                target_criterium=target_criterium,
+                target_number=target_number,
+                batch_size=batch_size,
+                temp=temperature,
+                load_ckpt_path=load_model_weight,
+                restricted_fgs=restricted_fgs,
+                force_filters=force_filters,
+            )
+        )
+
+        if self.verbose:
+            message = f"""--- The following generation parameters were set:
+    target number: {target_number} {self.target_to_description[target_criterium]}
+    batch size: {batch_size} & temperature: {temperature}"""
+            if force_filters is not None:
+                message += (
+                    f"\n    the following filters will be applied: {force_filters}"
+                )
+            rel_path = os.sep.join(
+                load_model_weight.split(os.sep)[self.base_sep_count :]
+            )
+            message += f"\n    model weights will be loaded from: {rel_path}"
+            rel_path = os.sep.join(
+                dataset_desc_path.split(os.sep)[self.base_sep_count :]
+            )
+            message += f"\n    dataset descriptors will be loaded from: {rel_path}"
+            assert (
+                self.cycle_temp_params["completions_fname"] is not None
+            ), "completions_fname is None"
+            message += f"\n    generated completions will be saved to: {os.sep.join(self.cycle_temp_params['completions_fname'].split(os.sep)[self.base_sep_count :])}"
+            assert (
+                self.cycle_temp_params["unique_smiles_fname"] is not None
+            ), "unique_smiles_fname is None"
+            message += f"\n    unique canonic smiles will be saved to: {os.sep.join(self.cycle_temp_params['unique_smiles_fname'].split(os.sep)[self.base_sep_count :])}"
+            assert (
+                self.cycle_temp_params["generation_metrics_fname"] is not None
+            ), "generation_metrics_fname is None"
+            message += f"\n    generation metrics will be saved to: {os.sep.join(self.cycle_temp_params['generation_metrics_fname'].split(os.sep)[self.base_sep_count :])}"
+            if target_criterium == "force_number_filtered":
+                assert (
+                    self.cycle_temp_params["filtered_smiles_fname"] is not None
+                ), "filtered_smiles_fname is None"
+                message += f"\n    filtered molecules will be saved to: {os.sep.join(self.cycle_temp_params['filtered_smiles_fname'].split(os.sep)[self.base_sep_count :])}"
+            if force_filters is not None and "ADMET" in force_filters:
+                message += f"\n    The following ADMET filters will be enforced:"
+                for descriptor, paramdic in FUNC_ADMET.items():
+                    message += f"\n    |    {descriptor} in range [{paramdic['lower']}, {paramdic['upper']}]"
+            if force_filters is not None and "FGs" in force_filters:
+                message += f"\n    The following functional groups will be restricted:"
+                joined_str = ", ".join(restricted_fgs)
+                message += f"\n    |    {textwrap.fill(joined_str, 80, subsequent_indent='    |    ')}"
+            print(message)
 
 
 class ModelConfig:
@@ -432,6 +503,7 @@ class ModelConfig:
         self.lr_decay = lr_decay
 
         self.train_params: Dict[str, Any] = {}
+        self.generation_params: Dict[str, Any] = {}
 
     def set_dataset_attributes(
         self,
