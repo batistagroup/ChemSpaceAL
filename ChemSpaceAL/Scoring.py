@@ -1,16 +1,20 @@
-# import os
 # import matplotlib.pyplot as plt
-# import numpy as np
 # from scipy.stats import gaussian_kde
-# import pandas as pd
 
 # from .Configuration import *
 from ChemSpaceAL.Configuration import Config
 from rdkit import Chem
 import prolif
 from tqdm import tqdm
+import os
+import numpy as np
+import pandas as pd
+from typing import Dict
 
-def get_contacts(protein: str, ligand: str) -> int:
+
+def score_protein_ligand_pose(
+    config: Config, protein_path: str, ligand_path: str
+) -> float:
     """
     Calculate the interaction score between a protein and ligand.
 
@@ -21,23 +25,26 @@ def get_contacts(protein: str, ligand: str) -> int:
     Returns:
     - int: Cumulative interaction score.
     """
+    assert isinstance(
+        config.prolif_weights, dict
+    ), ".set_scoring_parameters() wasn't called"
     # Convert PDB and SD files to prolif and rdkit Molecule objects respectively
-    prot = prolif.Molecule(Chem.MolFromPDBFile(protein, removeHs=False))
-    lig = Chem.SDMolSupplier(ligand, removeHs=False)
-    lig = prolif.Molecule.from_rdkit(lig[0])
+    protein = prolif.Molecule(Chem.MolFromPDBFile(protein_path, removeHs=False))
+    ligand = Chem.SDMolSupplier(ligand_path, removeHs=False)
+    ligand = prolif.Molecule.from_rdkit(ligand[0])
 
     # Compute the protein-ligand interaction fingerprint
-    fp = prolif.Fingerprint(interactions=list(interaction_scores.keys()))
-    fp.run_from_iterable([lig], prot, progress=False)
+    fp = prolif.Fingerprint(interactions=list(config.prolif_weights.keys()))
+    fp.run_from_iterable([ligand], protein, progress=False)
 
-    try:
+    try:  # TO-DO get rid of the try loop
         # Convert fingerprint to DataFrame and compute cumulative score
         df = fp.to_dataframe()
         df_stacked = df.stack(level=[0, 1, 2])
         df_reset = df_stacked.to_frame().reset_index()
         df_reset.columns = ["Frame", "ligand", "protein", "interaction", "value"]
         df_reset["score"] = df_reset["interaction"].apply(
-            lambda x: interaction_scores[x]
+            lambda x: config.prolif_weights[x]
         )
         return df_reset["score"].sum()
     except:
@@ -45,7 +52,7 @@ def get_contacts(protein: str, ligand: str) -> int:
         return 0
 
 
-def score_ligands(config: dict) -> dict:
+def score_ligands(config: Config) -> Dict[str, float]:
     """
     Scores all ligands in the specified directory based on their interactions with a given protein.
 
@@ -55,64 +62,19 @@ def score_ligands(config: dict) -> dict:
     Returns:
     - dict: A dictionary containing ligand names as keys and their scores as values.
     """
-    ligand_list = [
-        config["diffdock_results_path"] + lig
-        for lig in os.listdir(config["diffdock_results_path"])
+    assert isinstance((protein_path:=config.cycle_temp_params["path_to_protein"]), str), ".set_scoring_parameters() wasn't called"
+    ligand_paths_list = [
+        config.scoring_pose_path + lig
+        for lig in os.listdir(config.scoring_pose_path)
         if lig.endswith(".sdf")
     ]
     ligand_scores = {}
-    pbar = tqdm(ligand_list, total=len(ligand_list))
-    for lig in pbar:
-        if (name := lig.split("/")[-1].split(".")[0]) not in ligand_scores:
-            score = get_contacts(config["protein_path"], lig)
+    pbar = tqdm(ligand_paths_list, total=len(ligand_paths_list))
+    for ligand_path in pbar:
+        if (name := ligand_path.split("/")[-1].split(".")[0]) not in ligand_scores:
+            score = score_protein_ligand_pose(config, protein_path, ligand_path)
             ligand_scores[name] = score
     return ligand_scores
-
-
-def plot_ligand_scores(config: dict, ligand_scores: dict):
-    """
-    Plot a histogram and KDE for the ligand scores.
-
-    Parameters:
-    - config (dict): Configuration dictionary containing paths and other settings.
-    - ligand_scores (dict): Dictionary of ligand scores.
-    """
-    data = list(ligand_scores.values())
-
-    # Plot histogram
-    plt.figure(figsize=(8, 6), dpi=80)
-    plt.hist(data, bins=50, density=True, color="gray", alpha=0.7, edgecolor="black")
-
-    # Plot KDE line
-    smoothed_data = np.linspace(min(data), max(data), 1000)
-    kde = gaussian_kde(data)
-    smoothed_line = kde(smoothed_data)
-    plt.plot(smoothed_data, smoothed_line, linewidth=2.5, color="black")
-
-    # Configure plot details
-    plt.xlabel("Values", fontsize=18)
-    plt.ylabel("Density", fontsize=18)
-    plt.xticks(fontsize=16)
-    plt.yticks(fontsize=16)
-    plt.title("Density Plot of Scores", fontsize=20)
-    plt.grid(linestyle="--", linewidth=0.5, alpha=0.7)
-    plt.gca().spines["top"].set_visible(False)
-    plt.gca().spines["right"].set_visible(False)
-    plt.tick_params(axis="both", which="both", direction="in", length=4)
-    plt.show()
-
-    # Print summary statistics
-    zero_count = data.count(0)
-    print(
-        f"There are {zero_count} ligands with 0 connections ({np.round(zero_count / len(data)*100, 1)}%)"
-    )
-    for i in range(int(np.max(data)) + 1):
-        count = len([value for value in data if value > i])
-        print(
-            f"There are {count} ligands with scores greater than {i} ({np.round(count / len(data)*100, 1)}%)"
-        )
-    print(f"The mean score for all ligands is {np.round(np.mean(data), 1)}")
-    print(f"The lowest score for all ligands is {np.min(data)}")
 
 
 def parse_and_prepare_diffdock_data(

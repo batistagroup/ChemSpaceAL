@@ -159,7 +159,9 @@ class Config:
             "path_to_kmeans": None,
             "path_to_clusters": None,
             "path_to_sampled": None,
+            "path_to_protein": None,
         }
+        self.prolif_weights: Optional[Dict[str, float]] = None
         self.model_config = ModelConfig()
 
         self.set_config_paths()
@@ -570,20 +572,29 @@ class Config:
             print(message)
 
     def set_scoring_parameters(
-        self, interaction_weights: Optional[Dict[str, float]] = None
+        self, protein_path: str, interaction_weights: Optional[Dict[str, float]] = None
     ):
         prolif_weights = INTERACTION_WEIGHTS
         if interaction_weights is not None:
             for interaction, weight in interaction_weights.items():
-                assert interaction in self.prolif_interactions, f"{interaction=} is not counted by prolif, only {', '.join(self.prolif_interactions)} are supported"
+                assert (
+                    interaction in self.prolif_interactions
+                ), f"{interaction=} is not counted by prolif, only {', '.join(self.prolif_interactions)} are supported"
                 prolif_weights[interaction] = weight
         self.prolif_weights = prolif_weights
+        self.cycle_temp_params["path_to_protein"] = (
+            self.scoring_target_path + protein_path
+        )
         if self.verbose:
             row = "\n    {:<45} {:<80}"
             message = "--- The following scoring parameters were set:"
             message += row.format(
                 "Reminder that docking poses will be written to",
                 self.rel_path(self.scoring_pose_path),
+            )
+            message += row.format(
+                "protein will be loaded from",
+                self.rel_path(self.cycle_temp_params["path_to_protein"]),
             )
             message += f"\n    The following prolif interaction weights will be used:"
             joined_str = ", ".join([f"{i}: {w}" for i, w in prolif_weights.items()])
