@@ -58,7 +58,9 @@ def score_ligands(config: Config) -> Dict[str, float]:
     Returns:
     - dict: A dictionary containing ligand names as keys and their scores as values.
     """
-    assert isinstance((protein_path:=config.cycle_temp_params["path_to_protein"]), str), ".set_scoring_parameters() wasn't called"
+    assert isinstance(
+        (protein_path := config.cycle_temp_params["path_to_protein"]), str
+    ), ".set_scoring_parameters() wasn't called"
     ligand_paths_list = [
         config.scoring_pose_path + lig
         for lig in os.listdir(config.scoring_pose_path)
