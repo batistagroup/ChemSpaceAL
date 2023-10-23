@@ -1,7 +1,3 @@
-# import matplotlib.pyplot as plt
-# from scipy.stats import gaussian_kde
-
-# from .Configuration import *
 from ChemSpaceAL.Configuration import Config
 from rdkit import Chem
 import prolif
