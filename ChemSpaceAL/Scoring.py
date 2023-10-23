@@ -1,32 +1,14 @@
-import os
-from tqdm import tqdm
-import prolif
+# import os
+# import matplotlib.pyplot as plt
+# import numpy as np
+# from scipy.stats import gaussian_kde
+# import pandas as pd
+
+# from .Configuration import *
+from ChemSpaceAL.Configuration import Config
 from rdkit import Chem
-import matplotlib.pyplot as plt
-import numpy as np
-from scipy.stats import gaussian_kde
-import pandas as pd
-
-from .Configuration import *
-
-# Dictionary containing scores for different protein-ligand interactions
-interaction_scores = {
-    "Hydrophobic": 2.5,
-    "HBDonor": 3.5,
-    "HBAcceptor": 3.5,
-    "Anionic": 7.5,
-    "Cationic": 7.5,
-    "CationPi": 2.5,
-    "PiCation": 2.5,
-    "VdWContact": 1.0,
-    "XBAcceptor": 3.0,
-    "XBDonor": 3.0,
-    "FaceToFace": 3.0,
-    "EdgeToFace": 1.0,
-    "MetalDonor": 3.0,
-    "MetalAcceptor": 3.0,
-}
-
+import prolif
+from tqdm import tqdm
 
 def get_contacts(protein: str, ligand: str) -> int:
     """

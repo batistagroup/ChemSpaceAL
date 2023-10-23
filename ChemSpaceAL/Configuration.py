@@ -72,6 +72,23 @@ FUNC_ADMET: AdmetDict = {
         "upper": 6.5,
     },  # AdMET Lab recommends [0,3], [-0.4, 5.6] from Ghose
 }
+# Dictionary containing scores for different protein-ligand interactions
+INTERACTION_WEIGHTS: Dict[str, float] = {
+    "Hydrophobic": 2.5,
+    "HBDonor": 3.5,
+    "HBAcceptor": 3.5,
+    "Anionic": 7.5,
+    "Cationic": 7.5,
+    "CationPi": 2.5,
+    "PiCation": 2.5,
+    "VdWContact": 1.0,
+    "XBAcceptor": 3.0,
+    "XBDonor": 3.0,
+    "FaceToFace": 3.0,
+    "EdgeToFace": 1.0,
+    "MetalDonor": 3.0,
+    "MetalAcceptor": 3.0,
+}
 
 
 class Config:
@@ -88,6 +105,7 @@ class Config:
     filter_options: Set[str] = {"ADMET", "ADMET+FGs", "FGs"}
     supported_descriptors: Set[str] = {"mix", "mqn", "mixmqn"}
     selection_modes: Set[str] = {"threshold", "percentile"}
+    prolif_interactions: Set[str] = set(INTERACTION_WEIGHTS.keys())
 
     def __init__(
         self,
@@ -551,6 +569,27 @@ class Config:
             )
             print(message)
 
+    def set_scoring_parameters(
+        self, interaction_weights: Optional[Dict[str, float]] = None
+    ):
+        prolif_weights = INTERACTION_WEIGHTS
+        if interaction_weights is not None:
+            for interaction, weight in interaction_weights.items():
+                assert interaction in self.prolif_interactions, f"{interaction=} is not counted by prolif, only {', '.join(self.prolif_interactions)} are supported"
+                prolif_weights[interaction] = weight
+        self.prolif_weights = prolif_weights
+        if self.verbose:
+            row = "\n    {:<45} {:<80}"
+            message = "--- The following scoring parameters were set:"
+            message += row.format(
+                "Reminder that docking poses will be written to",
+                self.rel_path(self.scoring_pose_path),
+            )
+            message += f"\n    The following prolif interaction weights will be used:"
+            joined_str = ", ".join([f"{i}: {w}" for i, w in prolif_weights.items()])
+            message += f"\n    |    {textwrap.fill(joined_str, 80, subsequent_indent='    |    ')}"
+            print(message)
+
     def set_active_learning_parameters(
         self,
         selection_mode: str,
@@ -565,18 +604,17 @@ class Config:
         }
         match selection_mode:
             case "threshold":
-                assert isinstance(threshold, float), "you have to provide `threshold` value with selection mode `threshold`"
+                assert isinstance(
+                    threshold, float
+                ), "you have to provide `threshold` value with selection mode `threshold`"
                 self.scoring_parameters["threshold"] = threshold
             case "percentile":
-                assert isinstance(percentile, float), "you have to provide `percentile` value with selection mode `percentile`"
+                assert isinstance(
+                    percentile, float
+                ), "you have to provide `percentile` value with selection mode `percentile`"
                 self.scoring_parameters["percentile"] = percentile
         if self.verbose:
-            row = "\n    {:<45} {:<80}"
             message = "--- The following scoring parameters were set:"
-            message += row.format(
-                "Reminder that docking poses will be written to",
-                self.rel_path(self.scoring_pose_path),
-            )
             match selection_mode:
                 case "threshold":
                     message += f"\n    AL"
