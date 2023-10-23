@@ -170,7 +170,7 @@ def cluster_and_sample(
     n_iter: int = 100,
     objective: str = "mixed",
     load_kmeans=False,
-) -> Dict[int, Any]:
+) -> Dict[int, np.ndarray[str]]:
     """Cluster the molecules and then sample from each cluster.
 
     Args:
@@ -253,7 +253,7 @@ def cluster_and_sample(
     # clusters uniformly. If the number of extra molecules is greater than the number of molecules in a cluster, all
     # molecules from that cluster are sampled.
     avg_len = np.mean([len(v) for v in cluster_to_mols.values()])
-    cluster_to_samples: Dict[int, Any] = {}
+    cluster_to_samples: Dict[int, np.ndarray[str]] = {}
     extra_mols = (n_clusters - len(cluster_to_mols)) * samples_per_cluster
     left_to_sample = n_samples
     cluster_to_len = {cluster: len(mols) for cluster, mols in cluster_to_mols.items()}
@@ -261,7 +261,7 @@ def cluster_and_sample(
     for i, (cluster, _) in enumerate(
         sorted(cluster_to_len.items(), key=lambda x: x[1], reverse=False)
     ):
-        smiles = cluster_to_mols[cluster]
+        smiles = np.array(cluster_to_mols[cluster])
         if extra_mols > 0:
             cur_extra = int(
                 1 + extra_mols / (len(cluster_to_mols) - i) * len(smiles) / avg_len

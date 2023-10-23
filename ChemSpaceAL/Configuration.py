@@ -87,6 +87,7 @@ class Config:
     }
     filter_options: Set[str] = {"ADMET", "ADMET+FGs", "FGs"}
     supported_descriptors: Set[str] = {"mix", "mqn", "mixmqn"}
+    selection_modes: Set[str] = {"threshold", "percentile"}
 
     def __init__(
         self,
@@ -549,6 +550,36 @@ class Config:
                 self.rel_path(cast(str, self.cycle_temp_params["path_to_sampled"])),
             )
             print(message)
+
+    def set_active_learning_parameters(
+        self,
+        selection_mode: str,
+        threshold: Optional[float] = None,
+        percentile: Optional[float] = None,
+    ):
+        assert (
+            selection_mode in self.selection_modes
+        ), f"Only {', '.join(self.selection_modes)} are supported as selection modes"
+        self.scoring_parameters: Dict[str, Union[str, float]] = {
+            "selection_mode": selection_mode,
+        }
+        match selection_mode:
+            case "threshold":
+                assert isinstance(threshold, float), "you have to provide `threshold` value with selection mode `threshold`"
+                self.scoring_parameters["threshold"] = threshold
+            case "percentile":
+                assert isinstance(percentile, float), "you have to provide `percentile` value with selection mode `percentile`"
+                self.scoring_parameters["percentile"] = percentile
+        if self.verbose:
+            row = "\n    {:<45} {:<80}"
+            message = "--- The following scoring parameters were set:"
+            message += row.format(
+                "Reminder that docking poses will be written to",
+                self.rel_path(self.scoring_pose_path),
+            )
+            match selection_mode:
+                case "threshold":
+                    message += f"\n    AL"
 
 
 class ModelConfig:
