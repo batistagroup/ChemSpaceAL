@@ -28,7 +28,7 @@ jobs:
         python setup.py install
 
     - name: Run tests and collect coverage
-      run: pytest --cov
+      run: pytest --cov=ChemSpaceAL
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4-beta
       env:
