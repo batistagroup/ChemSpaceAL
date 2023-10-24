@@ -106,6 +106,7 @@ class Config:
     supported_descriptors: Set[str] = {"mix", "mqn", "mixmqn"}
     selection_modes: Set[str] = {"threshold", "percentile"}
     prolif_interactions: Set[str] = set(INTERACTION_WEIGHTS.keys())
+    probability_modes: Set[str] = {"softsub", "softdiv", "linear", "uniform"}
 
     def __init__(
         self,
@@ -153,13 +154,14 @@ class Config:
             "unique_smiles_fname": None,
             "generation_metrics_fname": None,
             "filtered_smiles_fname": None,
-            "al_train_fname": None,
             "path_to_descriptors": None,
             "path_to_pca": None,
             "path_to_kmeans": None,
             "path_to_clusters": None,
             "path_to_sampled": None,
             "path_to_protein": None,
+            "path_to_scored": None,
+            "path_to_al_training_set": None,
         }
         self.prolif_weights: Optional[Dict[str, float]] = None
         self.model_config = ModelConfig()
@@ -585,6 +587,10 @@ class Config:
         self.cycle_temp_params["path_to_protein"] = (
             self.scoring_target_path + protein_path
         )
+        self.cycle_temp_params["path_to_scored"] = (
+            self.scoring_score_path
+            + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}.csv"
+        )
         if self.verbose:
             row = "\n    {:<45} {:<80}"
             message = "--- The following scoring parameters were set:"
@@ -596,6 +602,10 @@ class Config:
                 "protein will be loaded from",
                 self.rel_path(self.cycle_temp_params["path_to_protein"]),
             )
+            message += row.format(
+                "and scored molecules will be saved to",
+                self.rel_path(self.cycle_temp_params["path_to_scored"]),
+            )
             message += f"\n    The following prolif interaction weights will be used:"
             joined_str = ", ".join([f"{i}: {w}" for i, w in prolif_weights.items()])
             message += f"\n    |    {textwrap.fill(joined_str, 80, subsequent_indent='    |    ')}"
@@ -604,31 +614,72 @@ class Config:
     def set_active_learning_parameters(
         self,
         selection_mode: str,
+        training_size: int,
+        n_replicate: bool = True,
+        probability_mode: str = "softsub",
+        cluster_score_mode: str = "mean",
+        softdiv_factor: Optional[float] = None,
         threshold: Optional[float] = None,
         percentile: Optional[float] = None,
     ):
         assert (
             selection_mode in self.selection_modes
         ), f"Only {', '.join(self.selection_modes)} are supported as selection modes"
-        self.scoring_parameters: Dict[str, Union[str, float]] = {
+        assert (
+            probability_mode in self.probability_modes
+        ), f"Only {', '.join(self.probability_modes)} are supported as probability modes"
+        assert (
+            training_size % 2 == 0
+        ), f"Please provide an even value for the `training_size` so that it can be evenly split between top ligands and sampled_mols"
+        self.alconstruction_parameters: Dict[str, Union[str, float, bool]] = {
             "selection_mode": selection_mode,
+            "probability_mode": probability_mode,
+            "training_size": training_size,
+            "n_replicate": n_replicate,
+            "cluster_score_mode": cluster_score_mode,
         }
+        if probability_mode == "softdiv":
+            assert isinstance(
+                softdiv_factor, float
+            ), "softdiv_factor must be provided when `probability_mode` is set to softdiv"
+            self.alconstruction_parameters["softdiv_factor"] = softdiv_factor
         match selection_mode:
             case "threshold":
                 assert isinstance(
-                    threshold, float
+                    threshold, (float, int)
                 ), "you have to provide `threshold` value with selection mode `threshold`"
-                self.scoring_parameters["threshold"] = threshold
+                self.alconstruction_parameters["threshold"] = threshold
             case "percentile":
                 assert isinstance(
-                    percentile, float
+                    percentile, (float, int)
                 ), "you have to provide `percentile` value with selection mode `percentile`"
-                self.scoring_parameters["percentile"] = percentile
+                self.alconstruction_parameters["percentile"] = percentile
+
+        self.cycle_temp_params["path_to_al_training_set"] = (
+            self.al_train_path
+            + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}.csv"
+        )
         if self.verbose:
-            message = "--- The following scoring parameters were set:"
+            message = (
+                "--- The following AL training set construction parameters were set:"
+            )
+            message += f"\n    the training set will be constructed to have {training_size} molecules"
+            message += f"\n    of which {training_size//2} will be selected from the top scoring molecules defined by the following parameters:"
             match selection_mode:
                 case "threshold":
-                    message += f"\n    AL"
+                    message += f"\n        molecules with score above {threshold} will be selected"
+                case "percentile":
+                    message += f"\n        molecules with score above the {percentile}th percentile will be selected"
+            message += f"\n    the remaining {training_size//2} molecules will be selected from high-scoring clusters according to the following parameters:"
+            message += f"\n        the following probability mode will be used: {probability_mode}"
+            if probability_mode == "softdiv":
+                message += f"\n        the following softdiv factor will be used: {softdiv_factor}"
+            row = "\n    {:<45} {:<80}"
+            message += row.format(
+                "the training set will be saved to",
+                self.rel_path(self.cycle_temp_params["path_to_al_training_set"]),
+            )
+            print(message)
 
 
 class ModelConfig:

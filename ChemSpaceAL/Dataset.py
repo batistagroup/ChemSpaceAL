@@ -153,7 +153,7 @@ def load_data(
     # Handle data loading for 'Active Learning' mode
     elif mode == "Active Learning":
         assert (
-            al_fname := config.cycle_temp_params["al_train_fname"]
+            al_fname := config.cycle_temp_params["path_to_al_training_set"]
         ) is not None, (
             f"The name of the AL training set (al_train_fname) was not initialized"
         )

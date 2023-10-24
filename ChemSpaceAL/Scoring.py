@@ -5,7 +5,7 @@ from tqdm import tqdm
 import os
 import numpy as np
 import pandas as pd
-from typing import Dict
+from typing import Dict, Optional
 
 
 def score_protein_ligand_pose(
@@ -76,7 +76,9 @@ def score_ligands(config: Config) -> Dict[str, float]:
 
 
 def parse_and_prepare_diffdock_data(
-    ligand_scores: dict, config: dict, lower_percentile=50, threshold=11, scored_db=None
+    ligand_scores: Dict[str, float],
+    config: Config,
+    scored_db: Optional[Dict[str, float]] = None,
 ) -> pd.DataFrame:
     """
     Filter and prepare the diffdock data based on ligand scores.
@@ -84,8 +86,6 @@ def parse_and_prepare_diffdock_data(
     Parameters:
     - ligand_scores (dict): Dictionary of ligand scores.
     - config (dict): Configuration dictionary containing paths and other settings.
-    - lower_percentile (int): Percentile below which scores are considered low. Default is 50.
-    - threshold (int): Score threshold for filtering. Default is 11.
     - scored_db (dict): A dictionary containing already scored ligands, to avoid re-scoring.
 
     Returns:
@@ -93,17 +93,17 @@ def parse_and_prepare_diffdock_data(
     """
     if scored_db is None:
         scored_db = {}
-    diffdock_samples = pd.read_csv(config["diffdock_samples_path"])
-    if lower_percentile is not None:
-        threshold = np.percentile(list(ligand_scores.values()), lower_percentile)
+    sampled_mols = pd.read_csv(config.cycle_temp_params["path_to_sampled"])
+    # if lower_percentile is not None:
+    # threshold = np.percentile(list(ligand_scores.values()), lower_percentile)
     all_ligands = {
         int(complex_name[7:]): score for complex_name, score in ligand_scores.items()
     }
     getter = lambda x: scored_db.get(x, all_ligands.get(x, 0))
-    diffdock_samples["score"] = [
-        getter(complex_number) for complex_number in diffdock_samples.index
+    sampled_mols["score"] = [
+        getter(complex_number) for complex_number in sampled_mols.index
     ]
-    diffdock_samples.to_csv(config["path_to_scored"])
-    good_ligands = diffdock_samples[diffdock_samples["score"] >= threshold]
-    good_ligands.to_csv(config["path_to_good_mols"])
-    return diffdock_samples
+    sampled_mols.to_csv(config.cycle_temp_params["path_to_scored"])
+    # good_ligands = diffdock_samples[diffdock_samples["score"] >= threshold]
+    # good_ligands.to_csv(config["path_to_good_mols"])
+    return sampled_mols
