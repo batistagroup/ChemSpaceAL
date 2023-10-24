@@ -1,7 +1,7 @@
 import os
 import tempfile
 from unittest.mock import patch
-from ChemSpaceAL import InitializeWorkspace as iw
+from .. import InitializeWorkspace as iw
 
 
 def test_create_default_folders():
