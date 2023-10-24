@@ -1,0 +1,10 @@
+[run]
+source = 
+    ChemSpaceAL/InitializeWorkspace.py
+
+omit =
+    ChemSpaceAL/Model.py
+    ChemSpaceAL/Dataset.py
+    ChemSpaceAL/Docking.py
+    ChemSpaceAL/Generation.py
+    ChemSpaceAL/Training.py
