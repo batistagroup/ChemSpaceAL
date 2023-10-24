@@ -3,7 +3,7 @@ prod.ipynb
 sandbox.ipynb
 /Sophia/
 
-moses_test.csv.gz
+/PaperRuns/1_Pretraining/datasets/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
