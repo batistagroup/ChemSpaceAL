@@ -23,10 +23,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install pytest pytest-cov
 
-    - name: Install package
-      run: |
-        python setup.py install
-
     - name: Run tests and collect coverage
       run: pytest --cov=ChemSpaceAL
     - name: Upload coverage to Codecov
