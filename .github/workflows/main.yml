@@ -13,11 +13,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
@@ -34,5 +29,10 @@ jobs:
 
     - name: Run pytest
       run: |
-        pytest tests/
+        pytest --cov tests/
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
