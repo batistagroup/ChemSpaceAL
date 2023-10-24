@@ -1,11 +1,3 @@
-codecov:
-  project:
-    enabled: false
-  patch:
-    only_pulls: true
-  notify:
-    require_ci_to_pass: yes
-
 coverage:
   precision: 2
   round: down
