@@ -1,0 +1,31 @@
+codecov:
+  project:
+    enabled: false
+  patch:
+    only_pulls: true
+  notify:
+    require_ci_to_pass: yes
+
+coverage:
+  precision: 2
+  round: down
+  range: "0...90"
+
+  status:
+    project: yes
+    patch: yes
+    changes: no
+
+comment:
+  layout: "header, diff, components"
+
+component_management:
+  default_rules:
+    statuses:
+      - type: patch
+        target: auto
+  individual_components:
+    - component_id: module_iw
+      name: InitializeWorkspace
+      paths:
+        - "ChemSpaceAL/InitializeWorkspace.py"
