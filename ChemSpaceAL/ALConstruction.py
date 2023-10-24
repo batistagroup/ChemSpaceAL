@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import pickle
-import plotly.graph_objects as go
 
 from ChemSpaceAL.Configuration import Config
 from typing import Union, Dict, List, Callable, Optional, cast
@@ -88,7 +87,7 @@ def _preprocess_scores_softmax(
     total = sum(exponentiate.values())
     softmax = {k: v / total for k, v in exponentiate.items()}
     return softmax
-    
+
 def balance_cluster_to_n(
     cluster_to_n: Dict[int, int], cluster_to_len: Dict[int, int]
 ) -> Dict[int, int]:
