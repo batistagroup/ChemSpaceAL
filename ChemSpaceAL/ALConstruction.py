@@ -67,7 +67,6 @@ def _preprocess_scores_linearly(
     normalized = {k: v / total for k, v in negated.items()}
     return normalized
 
-
 def _preprocess_scores_softmax(
     scores: Dict[int, Number],
     do_negation: bool = False,
@@ -89,8 +88,7 @@ def _preprocess_scores_softmax(
     total = sum(exponentiate.values())
     softmax = {k: v / total for k, v in exponentiate.items()}
     return softmax
-
-
+    
 def balance_cluster_to_n(
     cluster_to_n: Dict[int, int], cluster_to_len: Dict[int, int]
 ) -> Dict[int, int]:
