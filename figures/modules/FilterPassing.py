@@ -8,7 +8,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 import pickle
-RDLogger.DisableLog('rdApp.*')
+
+RDLogger.DisableLog("rdApp.*")
 
 Number = Union[int, float]
 AdmetDict = Dict[str, Dict[str, Union[Callable, Number]]]
@@ -107,6 +108,7 @@ def create_admet_metrics_traces(
     admet_metrics: Dict[str, List[Number]],
     showlegend: bool = True,
     ignored_metrics: Optional[Set[str]] = None,
+    distribution_upper_percentile: float = 100,
 ) -> Tuple[List[go.Scatterpolar], Number]:
     if ignored_metrics is None:
         ignored_metrics = set()
@@ -116,11 +118,16 @@ def create_admet_metrics_traces(
         if metric not in ignored_metrics
     }
     metrics = list(scaled_metrics.keys()) + [list(scaled_metrics.keys())[0]]
-    avg_values, max_values, min_values = [], [], []
+    avg_values, min_values, upper_values = [], [], []
     for metric in metrics:
         avg_values.append(np.mean(scaled_metrics[metric]))
-        max_values.append(max(scaled_metrics[metric]))
         min_values.append(min(scaled_metrics[metric]))
+        if distribution_upper_percentile == 100:
+            upper_values.append(np.max(scaled_metrics[metric]))
+        else:
+            upper_values.append(
+                np.percentile(scaled_metrics[metric], distribution_upper_percentile)
+            )
     traces = []
 
     traces.append(
@@ -142,9 +149,13 @@ def create_admet_metrics_traces(
             showlegend=showlegend,
         )
     )
+    if distribution_upper_percentile == 100:
+        name = "Max. Value" 
+    else:
+        name = f"{distribution_upper_percentile}% percentile"
     traces.append(
         go.Scatterpolar(
-            r=max_values,
+            r=upper_values,
             theta=metrics,
             name="Max. Value",
             fill="tonext",
@@ -161,7 +172,7 @@ def create_admet_metrics_traces(
             showlegend=showlegend,
         )
     )
-    return traces, max(max_values)
+    return traces, max(upper_values)
 
 
 def create_admet_progression_figure(

@@ -18,27 +18,36 @@ configs = [
     ("model7_1iep_admetfg", "1IEP", "ADMET+FGs", "softsub"),
     ("model2_1iep", "1IEP", "ADMET+FGs", "admetfg_softsub"),
 ]
+rerun_admet = True
 for prefix, target, filters, channel in configs:
     print(prefix, target, filters, channel)
-    fnames = flt_pass.prepare_generation_fnames(
-        prefix=prefix, n_iters=n_iters, channel=channel, filters=filters, target=target
-    )
-    load_generation = flt_pass.prepare_generation_loader(base_path=SCORING_PATH)
-    traces_lists: List[flt_pass.Trace] = []
-    filtered_dicts = []
-    max_val = -float("inf")
-    for i, fname in enumerate(fnames):
-        smiles = load_generation(fname)
-        filtToData = flt_pass.compute_admet_metrics(smiles)
-        filtered_dicts.append(filtToData)
-        pickle.dump(
-            traces_lists, open(EXPORT_PATH + f"{prefix}_{filters}_{target}_dicts.pkl", "wb")
+    if rerun_admet:
+        fnames = flt_pass.prepare_generation_fnames(
+            prefix=prefix,
+            n_iters=n_iters,
+            channel=channel,
+            filters=filters,
+            target=target,
         )
-        traces, i_max_val = flt_pass.create_admet_metrics_traces(
-            filtToData, showlegend=i == 0, ignored_metrics=ignored
-        )
-        max_val = max(max_val, i_max_val)
-        traces_lists.append(traces)
+        load_generation = flt_pass.prepare_generation_loader(base_path=SCORING_PATH)
+        traces_lists: List[flt_pass.Trace] = []
+        filtered_dicts = []
+        max_val = -float("inf")
+        for i, fname in enumerate(fnames):
+            smiles = load_generation(fname)
+            filtToData = flt_pass.compute_admet_metrics(smiles[:100])
+            filtered_dicts.append(filtToData)
+            pickle.dump(
+                filtered_dicts,
+                open(EXPORT_PATH + f"{prefix}_{filters}_{target}_dicts.pkl", "wb"),
+            )
+            traces, i_max_val = flt_pass.create_admet_metrics_traces(
+                filtToData, showlegend=i == 0, ignored_metrics=ignored, distribution_upper_percentile=100
+            )
+            max_val = max(max_val, i_max_val)
+            traces_lists.append(traces)
+    else:
+        traces_lists = pickle.load(open(EXPORT_PATH + f"{prefix}_{filters}_{target}_dicts.pkl", "wb"))
 
     fig = flt_pass.create_admet_progression_figure(
         traces_lists, v_space=0.1, h_space=0.08, y_max=max_val + 0.05
@@ -54,4 +63,6 @@ for prefix, target, filters, channel in configs:
             font=dict(size=18),
         ),
     )
-    graph.save_figure(figure=fig, path=EXPORT_PATH, fname=f"{prefix}_{filters}_{target}")
+    graph.save_figure(
+        figure=fig, path=EXPORT_PATH, fname=f"{prefix}_{filters}_{target}"
+    )
