@@ -157,7 +157,7 @@ def create_admet_metrics_traces(
         go.Scatterpolar(
             r=upper_values,
             theta=metrics,
-            name="Max. Value",
+            name=name,
             fill="tonext",
             line_color="#2196f3",
             showlegend=showlegend,

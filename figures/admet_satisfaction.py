@@ -18,7 +18,8 @@ configs = [
     ("model7_1iep_admetfg", "1IEP", "ADMET+FGs", "softsub"),
     ("model2_1iep", "1IEP", "ADMET+FGs", "admetfg_softsub"),
 ]
-rerun_admet = True
+rerun_admet = False
+max_val = -float("inf")
 for prefix, target, filters, channel in configs:
     print(prefix, target, filters, channel)
     if rerun_admet:
@@ -35,20 +36,35 @@ for prefix, target, filters, channel in configs:
         max_val = -float("inf")
         for i, fname in enumerate(fnames):
             smiles = load_generation(fname)
-            filtToData = flt_pass.compute_admet_metrics(smiles[:100])
+            filtToData = flt_pass.compute_admet_metrics(smiles)
             filtered_dicts.append(filtToData)
             pickle.dump(
                 filtered_dicts,
                 open(EXPORT_PATH + f"{prefix}_{filters}_{target}_dicts.pkl", "wb"),
             )
             traces, i_max_val = flt_pass.create_admet_metrics_traces(
-                filtToData, showlegend=i == 0, ignored_metrics=ignored, distribution_upper_percentile=100
+                filtToData,
+                showlegend=i == 0,
+                ignored_metrics=ignored,
+                distribution_upper_percentile=100,
             )
             max_val = max(max_val, i_max_val)
             traces_lists.append(traces)
     else:
-        traces_lists = pickle.load(open(EXPORT_PATH + f"{prefix}_{filters}_{target}_dicts.pkl", "wb"))
-
+        filtered_dicts = pickle.load(
+            open(EXPORT_PATH + f"{prefix}_{filters}_{target}_dicts.pkl", "rb")
+        )
+        traces_lists = []
+        for i, filtToData in enumerate(filtered_dicts):
+            traces, i_max_val = flt_pass.create_admet_metrics_traces(
+                filtToData,
+                showlegend=i == 0,
+                ignored_metrics=ignored,
+                distribution_upper_percentile=95,
+            )
+            max_val = max(max_val, i_max_val)
+            traces_lists.append(traces)
+    max_val = 1.116
     fig = flt_pass.create_admet_progression_figure(
         traces_lists, v_space=0.1, h_space=0.08, y_max=max_val + 0.05
     )
@@ -66,3 +82,4 @@ for prefix, target, filters, channel in configs:
     graph.save_figure(
         figure=fig, path=EXPORT_PATH, fname=f"{prefix}_{filters}_{target}"
     )
+    # print(max_val)
