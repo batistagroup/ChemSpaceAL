@@ -69,7 +69,7 @@ FUNC_ADMET: AdmetDict = {
     "logP": {
         "func": lambda mol: Descriptors.MolLogP(mol),
         "lower": -0.4,
-        "upper": 6.5,
+        "upper": 6.5, # TODO: specify which Abl binder has log.p 6.3 
     },  # AdMET Lab recommends [0,3], [-0.4, 5.6] from Ghose
 }
 # Dictionary containing scores for different protein-ligand interactions

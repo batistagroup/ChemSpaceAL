@@ -10,6 +10,7 @@ sandbox.ipynb
 /figures/exports/ligand_distribution/jpg/
 /figures/exports/cluster_distribution/jpg/
 secret.py
+*pkl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

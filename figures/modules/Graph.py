@@ -219,6 +219,7 @@ if __name__ == "__main__":
             [
                 "ligand_distribution",
                 "cluster_distribution",
+                "admet_satisfaction"
                 # "conversion_schemes",
                 # "model_trainings",
                 # "pca",
