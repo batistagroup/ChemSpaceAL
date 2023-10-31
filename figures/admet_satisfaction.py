@@ -19,6 +19,7 @@ configs = [
     ("model2_1iep", "1IEP", "ADMET+FGs", "admetfg_softsub"),
 ]
 for prefix, target, filters, channel in configs:
+    print(prefix, target, filters, channel)
     fnames = flt_pass.prepare_generation_fnames(
         prefix=prefix, n_iters=n_iters, channel=channel, filters=filters, target=target
     )
