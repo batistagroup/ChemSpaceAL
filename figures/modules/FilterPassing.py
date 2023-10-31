@@ -1,5 +1,6 @@
 from rdkit import Chem
 from rdkit.Chem import Descriptors
+from rdkit import RDLogger
 from typing import Dict, Union, Callable, List, cast, Tuple, Set, Optional
 from tqdm import tqdm
 import pandas as pd
@@ -7,6 +8,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 import pickle
+RDLogger.DisableLog('rdApp.*')
 
 Number = Union[int, float]
 AdmetDict = Dict[str, Dict[str, Union[Callable, Number]]]
@@ -219,7 +221,8 @@ if __name__ == "__main__":
     # print(len(traces_lists))
     max_val = -float("inf")
     for i, fname in enumerate(fnames):
-        if i < 5: continue
+        if i < 5:
+            continue
         smiles = load_generation(fname)
         filtToData = compute_admet_metrics(smiles)
         traces, i_max_val = create_admet_metrics_traces(
