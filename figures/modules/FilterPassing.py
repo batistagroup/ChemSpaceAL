@@ -8,6 +8,11 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 import pickle
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import tools.loaders
 
 RDLogger.DisableLog("rdApp.*")
 
@@ -46,32 +51,32 @@ FUNC_ADMET: AdmetDict = {
     },  # AdMET Lab recommends [0,3], [-0.4, 5.6] from Ghose
 }
 
-
-def prepare_generation_fnames(
-    prefix: str,
-    n_iters: int,
-    channel: str,
-    filters: str,
-    target: str,
-) -> List[str]:
-    assert filters in {"ADMET", "ADMET+FGs"}
-    if "model2" in prefix:
-        fnames = [
-            f"{prefix[:6]}_baseline_{target.upper()}_temp1.0_completions_{filters}",
-            *(
-                f"{prefix}_al{i}_{channel}_{target.upper()}_temp1.0_completions_{filters}"
-                for i in range(1, n_iters + 1)
-            ),
-        ]
-    elif "model7" in prefix:
-        fnames = [
-            f"{prefix[:6]}_baseline_{target.upper()}_temp1.0_completions_{filters}",
-            *(
-                f"{prefix}_{channel}_al{i}_{target.upper()}_temp1.0_completions_{filters}"
-                for i in range(1, n_iters + 1)
-            ),
-        ]
-    return fnames
+prepare_generation_fnames = tools.loaders.setup_fname_generator("temp1.0_completions")
+# def prepare_generation_fnames(
+#     prefix: str,
+#     n_iters: int,
+#     channel: str,
+#     filters: str,
+#     target: str,
+# ) -> List[str]:
+#     assert filters in {"ADMET", "ADMET+FGs"}
+#     if "model2" in prefix:
+#         fnames = [
+#             f"{prefix[:6]}_baseline_{target.upper()}_temp1.0_completions_{filters}",
+#             *(
+#                 f"{prefix}_al{i}_{channel}_{target.upper()}_temp1.0_completions_{filters}"
+#                 for i in range(1, n_iters + 1)
+#             ),
+#         ]
+#     elif "model7" in prefix:
+#         fnames = [
+#             f"{prefix[:6]}_baseline_{target.upper()}_temp1.0_completions_{filters}",
+#             *(
+#                 f"{prefix}_{channel}_al{i}_{target.upper()}_temp1.0_completions_{filters}"
+#                 for i in range(1, n_iters + 1)
+#             ),
+#         ]
+#     return fnames
 
 
 def prepare_generation_loader(base_path: str):
@@ -150,7 +155,7 @@ def create_admet_metrics_traces(
         )
     )
     if distribution_upper_percentile == 100:
-        name = "Max. Value" 
+        name = "Max. Value"
     else:
         name = f"{distribution_upper_percentile}% percentile"
     traces.append(
@@ -235,10 +240,10 @@ if __name__ == "__main__":
         if i < 5:
             continue
         smiles = load_generation(fname)
-        filtToData = compute_admet_metrics(smiles)
+        filtToData = compute_admet_metrics(smiles[:10])
         traces, i_max_val = create_admet_metrics_traces(
             filtToData, showlegend=i == 0, ignored_metrics=ignored
         )
         max_val = max(max_val, i_max_val)
         traces_lists.append(traces)
-        pickle.dump(traces_lists, open("traces_lists.pkl", "wb"))
+        # pickle.dump(traces_lists, open("traces_lists.pkl", "wb"))

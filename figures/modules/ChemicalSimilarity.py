@@ -10,6 +10,13 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from typing import Union, List
+import pprint
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import tools.loaders
+
+pp = pprint.PrettyPrinter(indent=2, width=100)
 
 imatinib = "Cc1ccc(cc1Nc2nccc(n2)c3cccnc3)NC(=O)c4ccc(cc4)CN5CCN(CC5)C"
 nilotinib = "Cc1ccc(cc1Nc2nccc(n2)c3cccnc3)C(=O)Nc4cc(cc(c4)n5cc(nc5)C)C(F)(F)F"
@@ -26,7 +33,14 @@ BINDER_NAMES = [
     "ponatinib",
     "bafetinib",
 ]
-ALL_SIMILARITY_METRICS = ["Tanimoto", "Dice", "Asymmetric", "Russel", "Sokal", "Cosine"]
+ALL_SIMILARITY_METRICS = [
+    "Tanimoto",
+    "Dice",
+    "Asymmetric",
+    "Kulczynski",
+    "Sokal",
+    "Cosine",
+]
 
 
 def create_mol_from_smile(smiles: str) -> Mol:
@@ -36,7 +50,7 @@ def create_mol_from_smile(smiles: str) -> Mol:
 
 
 def compute_fingerprint(
-    mol: Mol, fingerprint_type: str = "ECFP", radius: int = 4, n_bits: int = 1024
+    mol: Mol, fingerprint_type: str = "ECFP", radius: int = 2, n_bits: int = 1024
 ) -> ExplicitBitVect:
     match fingerprint_type:
         case "ECFP":
@@ -82,6 +96,8 @@ def compute_similarity(
             score = DataStructs.SokalSimilarity(fp1, fp2)
         case "Cosine":
             score = DataStructs.CosineSimilarity(fp1, fp2)
+        case "Kulczynski":
+            score = DataStructs.KulczynskiSimilarity(fp1, fp2)
         # case "Tversky": # needs sparse bit vectors
         #     score = DataStructs.TverskySimilarity(fp1, fp2)
     return score
@@ -91,7 +107,11 @@ def compute_abl_inhibitors_similarity_matrix(
     fp_type: str = "MACCS", sim_type: str = "Tanimoto"
 ) -> pd.DataFrame:
     mols = [create_mol_from_smile(smile) for smile in BINDERS]
-    fingerprints = [compute_fingerprint(mol, fp_type) for mol in mols]
+    if fp_type == "ECFP" or fp_type == "FCFP":
+        extra_params = dict(radius=2, n_bits=2048)
+    else:
+        extra_params = dict()
+    fingerprints = [compute_fingerprint(mol, fp_type, **extra_params) for mol in mols]
     matrix: List[List[[Union[float, None]]]] = []
     for i, r_fp in enumerate(fingerprints):
         row: List[Union[float, None]] = []
@@ -151,9 +171,27 @@ def create_abl_inhibitors_heatmap_all_simtypes(
     return fig
 
 
+
+prepare_scored_fnames = tools.loaders.setup_fname_generator("mix_k100")
 if __name__ == "__main__":
-    # mol1 = create_mol_from_smile(imatinib)
-    # mol2 = create_mol_from_smile(dasatinib)
+    fnames = prepare_scored_fnames(
+        prefix="model2_hnh",
+        n_iters=5,
+        channel="admetfg_softsub",
+        filters="ADMET+FGs",
+        target="HNH",
+    )
+    pp.pprint(fnames)
+    mol1 = create_mol_from_smile(imatinib)
+    mol2 = create_mol_from_smile(dasatinib)
+    # fp_type = "ECFP"
+    # fp1 = compute_fingerprint(mol1, fp_type)
+    # fp2 = compute_fingerprint(mol2, fp_type)
+    # sim_type = "Russel"
+    # print(len(fp1), len(fp2))
+    # score = DataStructs.RusselSimilarity(fp1, fp1)
+    # score = compute_similarity(fp1, fp1, sim_type)
+    # print(score)
     # types = []
     # for fp_type in [
     #     "ECFP",
@@ -168,7 +206,15 @@ if __name__ == "__main__":
     #     fp2 = compute_fingerprint(mol2, fp_type)
     #     types.append(type(fp1))
     #     types.append(type(fp2))
-    #     for sim_type in ["Tanimoto", "Dice", "Asymmetric", "Russel", "Sokal", "Cosine"]:
+    #     for sim_type in [
+    #         "Tanimoto",
+    #         "Dice",
+    #         "Asymmetric",
+    #         "Russel",
+    #         "Sokal",
+    #         "Cosine",
+    #         "Kulczynski",
+    #     ]:
     #         score = compute_similarity(fp1, fp2, sim_type)
     #         print(f"{fp_type} {sim_type} score: {score:.3f}")
     # print(types)
