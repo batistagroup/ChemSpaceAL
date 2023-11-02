@@ -52,6 +52,7 @@ FUNC_ADMET: AdmetDict = {
 }
 
 prepare_generation_fnames = tools.loaders.setup_fname_generator("temp1.0_completions")
+prepare_generation_loader = tools.loaders.prepare_loader
 # def prepare_generation_fnames(
 #     prefix: str,
 #     n_iters: int,
@@ -79,11 +80,11 @@ prepare_generation_fnames = tools.loaders.setup_fname_generator("temp1.0_complet
 #     return fnames
 
 
-def prepare_generation_loader(base_path: str):
-    def _load_generation(fname: str):
-        return pd.read_csv(base_path + fname + ".csv")["smiles"].to_list()
+# def prepare_generation_loader(base_path: str):
+#     def _load_generation(fname: str):
+#         return pd.read_csv(base_path + fname + ".csv")["smiles"].to_list()
 
-    return _load_generation
+#     return _load_generation
 
 
 def compute_admet_metrics(completions: List[str]) -> Dict[str, List[Number]]:

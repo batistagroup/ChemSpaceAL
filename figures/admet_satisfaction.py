@@ -5,7 +5,7 @@ import pickle
 import os
 from typing import List
 
-SCORING_PATH = modules.secret.PRODUCTION_RUNS_PATH + "2. Generation/smiles/"
+GENERATIONS_PATH = modules.secret.PRODUCTION_RUNS_PATH + "2. Generation/smiles/"
 EXPORT_PATH = os.path.join(os.getcwd(), "figures", "exports", "admet_satisfaction", "")
 
 n_iters = 5
@@ -30,7 +30,7 @@ for prefix, target, filters, channel in configs:
             filters=filters,
             target=target,
         )
-        load_generation = flt_pass.prepare_generation_loader(base_path=SCORING_PATH)
+        load_generation = flt_pass.prepare_generation_loader(base_path=GENERATIONS_PATH)
         traces_lists: List[flt_pass.Trace] = []
         filtered_dicts = []
         max_val = -float("inf")

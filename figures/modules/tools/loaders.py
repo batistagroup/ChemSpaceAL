@@ -1,6 +1,13 @@
 from typing import List, Callable
+import pandas as pd
 
-def setup_fname_generator(presuffix:str)-> Callable:
+def prepare_loader(base_path: str):
+    def _load_smiles(fname: str):
+        return pd.read_csv(base_path + fname + ".csv")["smiles"].to_list()
+    return _load_smiles
+
+
+def setup_fname_generator(presuffix: str) -> Callable:
     def prepare_scored_fnames(
         prefix: str,
         n_iters: int,
@@ -26,4 +33,5 @@ def setup_fname_generator(presuffix:str)-> Callable:
                 ),
             ]
         return fnames
+
     return prepare_scored_fnames

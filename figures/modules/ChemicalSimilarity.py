@@ -9,10 +9,12 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from typing import Union, List
+from typing import Union, List, Dict, cast, Callable, Optional, Any
 import pprint
 import sys
 import os
+from tqdm import tqdm
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tools.loaders
 
@@ -24,15 +26,14 @@ dasatinib = "Cc1cccc(c1NC(=O)c2cnc(s2)Nc3cc(nc(n3)C)N4CCN(CC4)CCO)Cl"
 bosutinib = "Clc1c(OC)cc(c(Cl)c1)Nc4c(C#N)cnc3cc(OCCCN2CCN(CC2)C)c(OC)cc34"
 ponatinib = "Cc1ccc(cc1C#Cc2cnc3n2nccc3)C(=O)Nc4ccc(c(c4)C(F)(F)F)CN5CCN(CC5)C"
 bafetinib = "CC1=C(C=C(C=C1)NC(=O)C2=CC(=C(C=C2)CN3CC[C@@H](C3)N(C)C)C(F)(F)F)NC4=NC=CC(=N4)C5=CN=CN=C5"
-BINDERS = [imatinib, nilotinib, dasatinib, bosutinib, ponatinib, bafetinib]
-BINDER_NAMES = [
-    "imatinib",
-    "nilotinib",
-    "dasatinib",
-    "bosutinib",
-    "ponatinib",
-    "bafetinib",
-]
+ABL_BINDERS = {
+    "imatinib": imatinib,
+    "nilotinib": nilotinib,
+    "dasatinib": dasatinib,
+    "bosutinib": bosutinib,
+    "ponatinib": ponatinib,
+    "bafetinib": bafetinib,
+}
 ALL_SIMILARITY_METRICS = [
     "Tanimoto",
     "Dice",
@@ -40,6 +41,15 @@ ALL_SIMILARITY_METRICS = [
     "Kulczynski",
     "Sokal",
     "Cosine",
+]
+ALL_FP_TYPES = [
+    "ECFP",
+    "FCFP",
+    "MACCS",
+    "RDKit FP",
+    "Atom-Pair FP",
+    "Topological Torsion FP",
+    "Avalon FP",
 ]
 
 
@@ -104,9 +114,13 @@ def compute_similarity(
 
 
 def compute_abl_inhibitors_similarity_matrix(
-    fp_type: str = "MACCS", sim_type: str = "Tanimoto"
+    fp_type: str, sim_type: str
 ) -> pd.DataFrame:
-    mols = [create_mol_from_smile(smile) for smile in BINDERS]
+    assert fp_type in ALL_FP_TYPES, f"{fp_type} is not a supported fingerprint type"
+    assert (
+        sim_type in ALL_SIMILARITY_METRICS
+    ), f"{sim_type} is not a supported similarity metric"
+    mols = [create_mol_from_smile(smile) for smile in ABL_BINDERS.values()]
     if fp_type == "ECFP" or fp_type == "FCFP":
         extra_params = dict(radius=2, n_bits=2048)
     else:
@@ -122,7 +136,9 @@ def compute_abl_inhibitors_similarity_matrix(
             else:
                 row.append(None)  # Set the upper triangle values as None
         matrix.append(row)
-    df = pd.DataFrame(matrix, columns=BINDER_NAMES, index=BINDER_NAMES)
+    df = pd.DataFrame(
+        matrix, columns=list(ABL_BINDERS.keys()), index=list(ABL_BINDERS.keys())
+    )
     return df
 
 
@@ -171,8 +187,149 @@ def create_abl_inhibitors_heatmap_all_simtypes(
     return fig
 
 
+def compare_smiles_to_single_abl_binder(
+    smiles: List[str], abl_binder: str, fp_type: str, sim_type: str
+) -> List[float]:
+    assert abl_binder in ABL_BINDERS, f"{abl_binder} is not a supported ABL binder"
+    assert fp_type in ALL_FP_TYPES, f"{fp_type} is not a supported fingerprint type"
+    assert (
+        sim_type in ALL_SIMILARITY_METRICS
+    ), f"{sim_type} is not a supported similarity metric"
+    abl_mol = create_mol_from_smile(ABL_BINDERS[abl_binder])
+    abl_fp = compute_fingerprint(abl_mol, fp_type)
+    scores = []
+    for smile in tqdm(smiles):
+        mol = create_mol_from_smile(smile)
+        mol_fp = compute_fingerprint(mol, fp_type)
+        score = compute_similarity(abl_fp, mol_fp, sim_type)
+        scores.append(score)
+    return scores
+
+
+def compare_smiles_to_fingerprint(
+    smiles: List[str], reference_fp: str, fp_type: str, sim_type: str
+) -> List[float]:
+    assert fp_type in ALL_FP_TYPES, f"{fp_type} is not a supported fingerprint type"
+    assert (
+        sim_type in ALL_SIMILARITY_METRICS
+    ), f"{sim_type} is not a supported similarity metric"
+    scores = []
+    for smile in smiles:
+        mol = create_mol_from_smile(smile)
+        mol_fp = compute_fingerprint(mol, fp_type)
+        score = compute_similarity(reference_fp, mol_fp, sim_type)
+        scores.append(score)
+    return scores
+
+
+def analyze_scores(plain_scores: List[float]):
+    scores: np.ndarray = np.array(plain_scores)
+    # find Q1 and Q3
+    q1, q3 = np.percentile(scores, [25, 75])
+    # find 95th percentile
+    p95 = np.percentile(scores, 95)
+    print(f"Min: {scores.min():.3f}")
+    print(f"Q1: {q1:.3f}")
+    print(f"Median: {np.median(scores):.3f}")
+    print(f"Mean: {scores.mean():.3f}")
+    print(f"Q3: {q3:.3f}")
+    print(f"95th percentile: {p95:.3f}")
+    print(f"Max: {scores.max():.3f}")
+
+
+def compare_smiles_to_abl_binders(
+    smiles: List[str], fp_type: str, sim_type: str, metrics: List[str]
+) -> Dict[str, List[float]]:
+    assert fp_type in ALL_FP_TYPES, f"{fp_type} is not a supported fingerprint type"
+    assert (
+        sim_type in ALL_SIMILARITY_METRICS
+    ), f"{sim_type} is not a supported similarity metric"
+    metricToFunc = {
+        "min": np.min,
+        "mean": np.mean,
+        "median": np.median,
+        "max": np.max,
+    }
+    assert all(
+        metric in metricToFunc for metric in metrics
+    ), f"{metrics} has a metric, which is not supported"
+    abl_mols = [create_mol_from_smile(smile) for smile in ABL_BINDERS.values()]
+    abl_fps = [compute_fingerprint(mol, fp_type) for mol in abl_mols]
+    scores: Dict[str, List[float]] = {metric: [] for metric in metrics}
+    for abl_fp in abl_fps:
+        sim_scores = compare_smiles_to_fingerprint(smiles, abl_fp, fp_type, sim_type)
+        for metric in metrics:
+            func = cast(Callable, metricToFunc[metric])
+            scores[metric].append(func(sim_scores))
+    return scores
+
+
+def create_similarity_al_trace(
+    scores: List[List[float]],
+    zmin: Optional[float] = None,
+    zmax: Optional[float] = None,
+    showscale: bool = True,
+    colorbar: Optional[dict] = None,
+) -> List[go.Heatmap]:
+    rev_scores = scores[::-1]
+    if zmin is None:
+        zmin = min(min(row) for row in rev_scores)
+    if zmax is None:
+        zmax = max(max(row) for row in rev_scores)
+    update = {}
+    if colorbar is not None:
+        update["colorbar"] = colorbar
+    return go.Heatmap(
+        z=rev_scores,
+        x=list(ABL_BINDERS.keys()),
+        y=[f"AL{i}" for i in range(len(scores) - 1, -1, -1)],
+        colorscale="Magma",
+        zmin=zmin,
+        zmax=zmax,
+        text=rev_scores,
+        texttemplate="%{text:.2f}",
+        showscale=showscale,
+        **update,
+    )
+
+
+def create_mean_max_similarity_figure(
+    smiles_lists: List[List[str]],
+    fp_type: str,
+    sim_type: str,
+    colorbars: List[Any],
+    h_space: float = 0.01,
+    v_space: float = 0.1,
+) -> go.Figure:
+    assert fp_type in ALL_FP_TYPES, f"{fp_type} is not a supported fingerprint type"
+    assert (
+        sim_type in ALL_SIMILARITY_METRICS
+    ), f"{sim_type} is not a supported similarity metric"
+    mean_lists, max_lists = [], []
+    for smiles in smiles_lists:
+        scores = compare_smiles_to_abl_binders(
+            smiles, fp_type, sim_type, metrics=["mean", "max"]
+        )
+        mean_lists.append(scores["mean"])
+        max_lists.append(scores["max"])
+    fig = make_subplots(
+        rows=1,
+        cols=2,
+        subplot_titles=["<b>Average Similarity</b>", "<b>Maximum Similarity</b>"],
+        vertical_spacing=v_space,
+        horizontal_spacing=h_space,
+    )
+    # zmin = min(min(row) for lists in (mean_lists, max_lists) for row in lists)
+    # zmax = max(max(row) for lists in (mean_lists, max_lists) for row in lists)
+    mean_trace = create_similarity_al_trace(mean_lists, colorbar=colorbars[0])
+    max_trace = create_similarity_al_trace(max_lists, colorbar=colorbars[1])
+    fig.add_trace(mean_trace, row=1, col=1)
+    fig.add_trace(max_trace, row=1, col=2)
+    return fig
+
 
 prepare_scored_fnames = tools.loaders.setup_fname_generator("mix_k100")
+prepare_loader = tools.loaders.prepare_loader
 if __name__ == "__main__":
     fnames = prepare_scored_fnames(
         prefix="model2_hnh",
