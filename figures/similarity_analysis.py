@@ -4,8 +4,8 @@ import modules.ChemicalSimilarity as chem_sim
 import os
 import pprint
 import plotly.graph_objects as go
-from typing import List
-from tqdm import tqdm 
+from typing import List, Dict, Any, Optional
+from tqdm import tqdm
 
 pp = pprint.PrettyPrinter(indent=2, width=100)
 EXPORT_PATH = os.path.join(os.getcwd(), "figures", "exports", "chemical_similarity", "")
@@ -14,10 +14,17 @@ SCORING_PATH = modules.secret.PRODUCTION_RUNS_PATH + "5. Scoring/scored_datafram
 
 
 def analyze_distribution_molecules(
-    smiles_lists: List[List[str]], fp_type: str, sim_type: str, fname: str
+    smiles_lists: List[List[str]],
+    fp_type: str,
+    sim_type: str,
+    fname: str,
+    mean_zmin: Optional[float] = None,
+    mean_zmax: Optional[float] = None,
+    max_zmin: Optional[float] = None,
+    max_zmax: Optional[float] = None,
 ):
     fig = chem_sim.create_mean_max_similarity_figure(
-        smile_lists,
+        smiles_lists,
         fp_type=fp_type,
         sim_type=sim_type,
         h_space=0.12,
@@ -33,11 +40,15 @@ def analyze_distribution_molecules(
                 title=f"{sim_type}<br>Similarity",  # Title of the colorbar
             ),
         ],
+        mean_zmin=mean_zmin,
+        mean_zmax=mean_zmax,
+        max_zmin=max_zmin,
+        max_zmax=max_zmax,
     )
     gr = Graph()
     gr.update_parameters(dict(width=1000, height=350, annotation_size=24))
     gr.style_figure(fig)
-    gr.save_figure(fig, path=EXPORT_PATH, fname=f"{fname}_{sim_type}_on_{fp_type}")
+    gr.save_figure(fig, path=EXPORT_PATH, fname=f"{fp_type}_by_{sim_type}_{fname}")
 
 
 def analyze_abl_binders():
@@ -62,23 +73,60 @@ def analyze_abl_binders():
 
 if __name__ == "__main__":
     n_iters = 5
+    # configs = [
+    #     ("model7_1iep_admet", "1IEP", "ADMET", "softsub"),
+    #     ("model7_1iep_admetfg", "1IEP", "ADMET+FGs", "softsub"),
+    #     ("model2_1iep", "1IEP", "ADMET+FGs", "admetfg_softsub"),
+    # ]
+    # fp_types = ["RDKit FP", "MACCS", "ECFP"]
+    # sim_types = ["Tanimoto"]
+    # pbar = tqdm(configs)
+    # for prefix, target, filters, channel in pbar:
+    #     for fp_type in fp_types:
+    #         for sim_type in sim_types:
+    #             pbar.set_description(f"{prefix} {fp_type} {sim_type}")
+    #             fnames = chem_sim.prepare_scored_fnames(
+    #                 prefix, n_iters, channel, filters, target
+    #             )
+    #             load_scored = chem_sim.prepare_loader(SCORING_PATH)
+    #             smile_lists = [load_scored(fname) for fname in fnames]
+    #             fname = f"{prefix}_{channel}_{target}_{filters}"
+    #             analyze_distribution_molecules(smile_lists, fp_type, sim_type, fname)
     configs = [
-        ("model7_hnh_admet", "HNH", "ADMET", "softsub"),
-        ("model7_hnh_admetfg", "HNH", "ADMET+FGs", "softsub"),
-        ("model2_hnh", "HNH", "ADMET+FGs", "admetfg_softsub"),
-        ("model7_1iep_admet", "1IEP", "ADMET", "softsub"),
         ("model7_1iep_admetfg", "1IEP", "ADMET+FGs", "softsub"),
         ("model2_1iep", "1IEP", "ADMET+FGs", "admetfg_softsub"),
     ]
-    fp_types = ["RDKit FP", "MACCS", "ECFP"]
-    sim_types = ["Tanimoto", "Dice"]
+    # For Tanimoto
+    fpToHyperparams: Dict[str, Dict[str, List[float]]] = {
+        "RDKit FP": {"mean": [0.27, 0.45], "max": [0.41, 0.80]},
+        "MACCS": {"mean": [0.41, 0.59], "max": [0.65, 0.95]},
+        "ECFP": {"mean": [0.08, 0.22], "max": [0.18, 0.66]},
+    }
+    sim_type = "Tanimoto"
+    # For Asymmetric
+    # fpToHyperparams: Dict[str, Dict[str, List[float]]] = {
+    #     "RDKit FP": {"mean": [0.51, 0.67], "max": [0.69, 0.99]},
+    #     "MACCS": {"mean": [0.66, 0.84], "max": [0.88, 1.0]},
+    #     "ECFP": {"mean": [0.18, 0.38], "max": [0.40, 0.85]},
+    # }
+    # sim_type = "Asymmetric"
     pbar = tqdm(configs)
     for prefix, target, filters, channel in pbar:
-        for fp_type in fp_types:
-            for sim_type in sim_types:
-                pbar.set_description(f"{prefix} {fp_type} {sim_type}")
-                fnames = chem_sim.prepare_scored_fnames(prefix, n_iters, channel, filters, target)
-                load_scored = chem_sim.prepare_loader(SCORING_PATH)
-                smile_lists = [load_scored(fname)[:10] for fname in fnames]
-                fname = f"{prefix}_{channel}_{target}_{filters}"
-                analyze_distribution_molecules(smile_lists, fp_type, sim_type, fname)
+        for fp_type, hyperparams in fpToHyperparams.items():
+            pbar.set_description(f"{prefix} {fp_type} {sim_type}")
+            fnames = chem_sim.prepare_scored_fnames(
+                prefix, n_iters, channel, filters, target
+            )
+            load_scored = chem_sim.prepare_loader(SCORING_PATH)
+            smile_lists = [load_scored(fname) for fname in fnames]
+            fname = f"{prefix}_{channel}_{target}_{filters}"
+            analyze_distribution_molecules(
+                smile_lists,
+                fp_type,
+                sim_type,
+                fname,
+                mean_zmin=hyperparams["mean"][0],
+                mean_zmax=hyperparams["mean"][1],
+                max_zmin=hyperparams["max"][0],
+                max_zmax=hyperparams["max"][1],
+            )

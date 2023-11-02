@@ -9,6 +9,7 @@ sandbox.ipynb
 /figures/exports/*/html/
 /figures/exports/ligand_distribution/jpg/
 /figures/exports/cluster_distribution/jpg/
+/figures/exports/
 secret.py
 *pkl
 

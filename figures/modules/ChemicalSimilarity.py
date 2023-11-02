@@ -300,6 +300,10 @@ def create_mean_max_similarity_figure(
     colorbars: List[Any],
     h_space: float = 0.01,
     v_space: float = 0.1,
+    mean_zmin: Optional[float] = None,
+    mean_zmax: Optional[float] = None,
+    max_zmin: Optional[float] = None,
+    max_zmax: Optional[float] = None,
 ) -> go.Figure:
     assert fp_type in ALL_FP_TYPES, f"{fp_type} is not a supported fingerprint type"
     assert (
@@ -321,8 +325,8 @@ def create_mean_max_similarity_figure(
     )
     # zmin = min(min(row) for lists in (mean_lists, max_lists) for row in lists)
     # zmax = max(max(row) for lists in (mean_lists, max_lists) for row in lists)
-    mean_trace = create_similarity_al_trace(mean_lists, colorbar=colorbars[0])
-    max_trace = create_similarity_al_trace(max_lists, colorbar=colorbars[1])
+    mean_trace = create_similarity_al_trace(mean_lists, colorbar=colorbars[0], zmin=mean_zmin, zmax=mean_zmax)
+    max_trace = create_similarity_al_trace(max_lists, colorbar=colorbars[1], zmin=max_zmin, zmax=max_zmax)
     fig.add_trace(mean_trace, row=1, col=1)
     fig.add_trace(max_trace, row=1, col=2)
     return fig
