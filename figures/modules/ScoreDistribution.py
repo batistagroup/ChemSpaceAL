@@ -8,7 +8,7 @@ from scipy.stats import gaussian_kde
 import plotly.graph_objects as go
 from openpyxl import Workbook, load_workbook
 
-from typing import Union, Dict, Callable, List, Optional, Tuple
+from typing import Union, Dict, Callable, List, Optional, Tuple, cast
 
 Number = Union[float, int, np.float64]
 Trace = Union[go.Histogram, go.Scatter]
@@ -83,8 +83,8 @@ def load_dist(scoring_path: str, fname: str, numpify: bool = True) -> pd.DataFra
 
 
 def compute_cluster_scores(
-    scoring_path: str, fname: str, aggregation_mode: str
-) -> np.ndarray:
+    scoring_path: str, fname: str, aggregation_mode: str, keep_cluster_id: bool = False
+) -> Union[np.ndarray, Dict]:
     scored_mols = load_dist(scoring_path, fname, numpify=False)
     cluster_to_scores: Dict[int, List[Union[float, int]]] = {}
     for _, row in scored_mols.iterrows():
@@ -96,10 +96,15 @@ def compute_cluster_scores(
             aggregator = np.median
         case _:
             raise ValueError(f"Unknown aggregation mode: {aggregation_mode}")
-    return np.array([
-        aggregator(scores)
-        for cluster_id, scores in cluster_to_scores.items()
-    ])
+    if keep_cluster_id:
+        return {
+            cluster_id: aggregator(scores)
+            for cluster_id, scores in cluster_to_scores.items()
+        }
+    else:
+        return np.array(
+            [aggregator(scores) for cluster_id, scores in cluster_to_scores.items()]
+        )
 
 
 # if __name__ == "__main__":
@@ -249,7 +254,7 @@ def prepare_score_distribution_traces(
     else:
         loader = lambda fname: load_dist(scoring_path, fname)
     for i, (fname, label, color) in enumerate(zip(fnames, labels, colors)):
-        data = loader(fname)
+        data = cast(np.ndarray, loader(fname))
         hist_trace, density_trace = create_hist_trace(
             data=data,
             label=label,

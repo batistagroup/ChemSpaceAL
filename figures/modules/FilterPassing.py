@@ -51,7 +51,9 @@ FUNC_ADMET: AdmetDict = {
     },  # AdMET Lab recommends [0,3], [-0.4, 5.6] from Ghose
 }
 
-prepare_generation_fnames = tools.loaders.setup_fname_generator("temp1.0_completions")
+prepare_generation_fnames = tools.loaders.setup_generations_fname_generator(
+    "temp1.0_completions", filters=True
+)
 prepare_generation_loader = tools.loaders.prepare_loader
 # def prepare_generation_fnames(
 #     prefix: str,
