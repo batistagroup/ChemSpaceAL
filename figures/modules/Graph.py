@@ -223,7 +223,7 @@ if __name__ == "__main__":
                 "chemical_similarity",
                 "distribution_analysis",
                 "conversion_schemes",
-                # "model_trainings",
+                "training_curves",
                 # "pca",
                 # "pdbbind",
                 # "model_quality",
