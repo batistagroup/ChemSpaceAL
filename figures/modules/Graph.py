@@ -225,8 +225,8 @@ if __name__ == "__main__":
                 "conversion_schemes",
                 "training_curves",
                 "model_quality",
-                "interactions_counts"
-                # "generation_distribution",
+                "interactions_counts",
+                "datasets_analysis",
             ],
             ["html", "svg", "jpg"],
         ],
