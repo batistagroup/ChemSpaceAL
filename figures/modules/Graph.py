@@ -225,8 +225,7 @@ if __name__ == "__main__":
                 "conversion_schemes",
                 "training_curves",
                 "model_quality",
-                # "pca",
-                # "pdbbind",
+                "interactions_counts"
                 # "generation_distribution",
             ],
             ["html", "svg", "jpg"],
