@@ -1,9 +1,10 @@
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from typing import Optional, List
+from typing import Optional, List, Union, Dict, Tuple
 import sys
 import os
 import pandas as pd
+import numpy as np
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import tools.loaders
@@ -11,7 +12,9 @@ import tools.projectors
 
 prepare_loader = tools.loaders.prepare_loader
 
+import re
 
+REGEX_PATTERN = "(\[[^\]]+]|<|Br?|Cl?|N|O|S|P|F|I|b|c|n|o|s|p|\(|\)|\.|=|#|-|\+|\\\\|\/|:|~|@|@@|\?|>|!|\*|\$|\%[0-9]{2}|[0-9])"
 DATASET_INFO = {
     "moses": ("moses_train", "moses_test", "model2"),
     "guacamol": ("guacamol_v1_train", "guacamol_v1_valid", "model3"),
@@ -21,6 +24,151 @@ DATASET_INFO = {
         "model7",
     ),
 }
+Number = Union[int, float]
+
+
+def load_raw_dataset(datasets_path: str, fname: str):
+    return pd.read_csv(datasets_path + fname + ".csv.gz")["smiles"].to_list()
+
+
+def analyze_vocabulary_and_length(
+    smiles: List[str],
+) -> Tuple[Dict[str, Number], List[int]]:
+    regex = re.compile(REGEX_PATTERN)
+    token_to_freq: Dict[str, Number] = {}
+    block_sizes = []
+
+    for smiel in smiles:
+        tokens = regex.findall(smiel.strip())
+        block_sizes.append(len(tokens))
+        for token in tokens:
+            token_to_freq[token] = token_to_freq.get(token, 0) + 1
+
+    return token_to_freq, block_sizes
+
+
+def plot_block_sizes_and_vocabulary_frequency(
+    token_to_freq: Dict[str, int], block_sizes: List[int]
+) -> go.Figure:
+    # Create subplots
+    fig = make_subplots(
+        rows=1,
+        cols=2,
+        subplot_titles=("<b>Block Sizes</b>", "<b>Token Frequencies</b>"),
+    )
+
+    # Subplot 1: Histogram of Block Sizes
+    fig.add_trace(
+        go.Histogram(
+            x=block_sizes,
+            name="Block Sizes",
+            showlegend=False,
+            marker_color="#023e8a",
+        ),
+        row=1,
+        col=1,
+    )
+    # Add a vertical line at block size 133
+    fig.add_vline(
+        x=133, line_width=2, line_dash="dash", line_color="gray", row=1, col=1
+    )
+
+    # Overlay percentile values
+    percentiles = sorted([95, 99, 99.9, 99.99], reverse=True)
+    for i, p in enumerate(percentiles):
+        value = np.percentile(block_sizes, p)
+        fig.add_annotation(
+            x=0.5,
+            y=0.0 + i * 0.05,
+            text=f"{p}th percentile: {value:.2f}",
+            showarrow=False,
+            xref="x domain",
+            xanchor="left",
+            yref="y domain",
+            row=1,
+            col=1,
+        )
+
+    # Subplot 2: Bar Chart of Token Frequencies
+    sorted_tokens = sorted(token_to_freq.items(), key=lambda x: x[1], reverse=True)
+    tokens, freqs = zip(*sorted_tokens)
+    fig.add_trace(
+        go.Bar(
+            x=tokens,
+            y=freqs,
+            name="Token Frequencies",
+            showlegend=False,
+            marker_color="#023e8a",
+        ),
+        row=1,
+        col=2,
+    )
+
+    # Find the last token with frequency > 1000
+    last_index = next(i for i, f in enumerate(freqs) if f <= 1000)
+    fig.add_vline(
+        x=last_index, line_width=2, line_dash="dash", line_color="gray", row=1, col=2
+    )
+
+    # Add annotations for token frequency thresholds
+    thresholds = [1000, 500, 100]
+    for i, t in enumerate(thresholds):
+        count = sum(1 for f in freqs if f < t)
+        fig.add_annotation(
+            x=0.5,
+            y=0.0 + i * 0.05,
+            text=f"Tokens < {t}: {count}",
+            showarrow=False,
+            xref="x2 domain",
+            xanchor="left",
+            yref="y2 domain",
+            row=1,
+            col=2,
+        )
+    return fig
+
+
+def plot_molecular_weight_distribution(
+    col1_mw: np.ndarray, col2_mw: np.ndarray, col3_mw: np.ndarray
+) -> go.Figure:
+    fig = make_subplots(
+        rows=1,
+        cols=3,
+        subplot_titles=("<b>MOSES</b>", "<b>GuacaMol</b>", "<b>Combined Dataset</b>"),
+    )
+
+    # Add a histogram trace for molecular weight distribution
+    fig.add_trace(
+        go.Histogram(
+            x=col1_mw,
+            xbins=dict(start=0, end=1000, size=2),
+            marker_color="#023e8a",
+            showlegend=False,
+        ),
+        row=1,
+        col=1,
+    )
+    fig.add_trace(
+        go.Histogram(
+            x=col2_mw,
+            xbins=dict(start=0, end=1500, size=2),
+            marker_color="#023e8a",
+            showlegend=False,
+        ),
+        row=1,
+        col=2,
+    )
+    fig.add_trace(
+        go.Histogram(
+            x=col3_mw,
+            xbins=dict(start=0, end=2000, size=2),
+            marker_color="#023e8a",
+            showlegend=False,
+        ),
+        row=1,
+        col=3,
+    )
+    return fig
 
 
 def load_training_smiles(
@@ -87,8 +235,12 @@ def prepare_scatter_traces(
                 opacity=trace_opacity,
             ),
         )
-        traces.append((create_trace(generated_reduced[i], 0), i // cols + 1, i % cols + 1))
-        traces.append((create_trace(training_reduced[i], 1), i // cols + 1, i % cols + 1))
+        traces.append(
+            (create_trace(generated_reduced[i], 0), i // cols + 1, i % cols + 1)
+        )
+        traces.append(
+            (create_trace(training_reduced[i], 1), i // cols + 1, i % cols + 1)
+        )
     return traces
 
 

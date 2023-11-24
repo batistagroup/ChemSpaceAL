@@ -26,6 +26,7 @@ dasatinib = "Cc1cccc(c1NC(=O)c2cnc(s2)Nc3cc(nc(n3)C)N4CCN(CC4)CCO)Cl"
 bosutinib = "Clc1c(OC)cc(c(Cl)c1)Nc4c(C#N)cnc3cc(OCCCN2CCN(CC2)C)c(OC)cc34"
 ponatinib = "Cc1ccc(cc1C#Cc2cnc3n2nccc3)C(=O)Nc4ccc(c(c4)C(F)(F)F)CN5CCN(CC5)C"
 bafetinib = "CC1=C(C=C(C=C1)NC(=O)C2=CC(=C(C=C2)CN3CC[C@@H](C3)N(C)C)C(F)(F)F)NC4=NC=CC(=N4)C5=CN=CN=C5"
+asciminib = "O=C(Nc1ccc(OC(F)(F)Cl)cc1)c1cnc(N2CC[C@@H](O)C2)c(-c2ccn[nH]2)c1"
 ABL_BINDERS = {
     "imatinib": imatinib,
     "nilotinib": nilotinib,
@@ -33,6 +34,7 @@ ABL_BINDERS = {
     "bosutinib": bosutinib,
     "ponatinib": ponatinib,
     "bafetinib": bafetinib,
+    "asciminib": asciminib,
 }
 ALL_SIMILARITY_METRICS = [
     "Tanimoto",

@@ -51,6 +51,7 @@ FUNC_ADMET: AdmetDict = {
     },  # AdMET Lab recommends [0,3], [-0.4, 5.6] from Ghose
 }
 
+
 prepare_generation_fnames = tools.loaders.setup_generations_fname_generator(
     "temp1.0_completions", filters=True
 )
@@ -223,30 +224,31 @@ def create_admet_progression_figure(
 
 
 if __name__ == "__main__":
-    prefix = "model2_hnh"
-    n_iters = 5
-    channel = "admetfg_softsub"
-    filters = "ADMET+FGs"
-    target = "HNH"
-    ignored: Set[str] = set()  # {"fChar"}
-    fnames = prepare_generation_fnames(
-        prefix=prefix, n_iters=n_iters, channel=channel, filters=filters, target=target
-    )
-    load_generation = prepare_generation_loader(
-        base_path="/Users/morgunov/batista/Summer/pipeline/2. Generation/smiles/"
-    )
-    traces_lists = []
-    traces_lists = pickle.load(open("traces_lists.pkl", "rb"))
-    # print(len(traces_lists))
-    max_val = -float("inf")
-    for i, fname in enumerate(fnames):
-        if i < 5:
-            continue
-        smiles = load_generation(fname)
-        filtToData = compute_admet_metrics(smiles[:10])
-        traces, i_max_val = create_admet_metrics_traces(
-            filtToData, showlegend=i == 0, ignored_metrics=ignored
-        )
-        max_val = max(max_val, i_max_val)
-        traces_lists.append(traces)
-        # pickle.dump(traces_lists, open("traces_lists.pkl", "wb"))
+    pass
+    # prefix = "model2_hnh"
+    # n_iters = 5
+    # channel = "admetfg_softsub"
+    # filters = "ADMET+FGs"
+    # target = "HNH"
+    # ignored: Set[str] = set()  # {"fChar"}
+    # fnames = prepare_generation_fnames(
+    #     prefix=prefix, n_iters=n_iters, channel=channel, filters=filters, target=target
+    # )
+    # load_generation = prepare_generation_loader(
+    #     base_path="/Users/morgunov/batista/Summer/pipeline/2. Generation/smiles/"
+    # )
+    # traces_lists = []
+    # traces_lists = pickle.load(open("traces_lists.pkl", "rb"))
+    # # print(len(traces_lists))
+    # max_val = -float("inf")
+    # for i, fname in enumerate(fnames):
+    #     if i < 5:
+    #         continue
+    #     smiles = load_generation(fname)
+    #     filtToData = compute_admet_metrics(smiles[:10])
+    #     traces, i_max_val = create_admet_metrics_traces(
+    #         filtToData, showlegend=i == 0, ignored_metrics=ignored
+    #     )
+    #     max_val = max(max_val, i_max_val)
+    #     traces_lists.append(traces)
+    #     # pickle.dump(traces_lists, open("traces_lists.pkl", "wb"))

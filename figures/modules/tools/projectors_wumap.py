@@ -1,3 +1,4 @@
+import umap
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -60,14 +61,13 @@ def reduce_dataframe(
                 transformed = transformed[:, :2]
             return transformed
         case "UMAP":
-            raise NotImplementedError
-            # reducer = umap.UMAP(
-            #     metric="euclidean",
-            #     n_components=2,
-            #     random_state=42,
-            #     **reduction_parameters,
-            # )
-            # return reducer.fit_transform(transformed)
+            reducer = umap.UMAP(
+                metric="euclidean",
+                n_components=2,
+                random_state=42,
+                **reduction_parameters,
+            )
+            return reducer.fit_transform(transformed)
         case "t-SNE":
             tsne = TSNE(
                 n_components=2,
