@@ -137,21 +137,39 @@ def prepare_cycle_config(
         )  # only because we started specifying targets for filtered runs
         assert filters in {"ADMET", "ADMET+FGs"}
         if "model2" in prefix:
-            fnames = [
-                f"{prefix[:6]}_baseline_{target.upper()}_{descriptors_type}_k{n_clusters}_{filters}",
-                *(
-                    f"{prefix}_al{i}_{channel}_{target.upper()}_{descriptors_type}_k{n_clusters}_{filters}"
-                    for i in range(1, n_iters + 1)
-                ),
-            ]
+            if "random" in channel:
+                fnames = [
+                    f"{prefix[:6]}_baseline_{target.upper()}_{channel}_{filters}",
+                    *(
+                        f"{prefix}_al{i}_{channel}_{target.upper()}_{channel}_{filters}"
+                        for i in range(1, n_iters + 1)
+                    ),
+                ]
+            else:
+                fnames = [
+                    f"{prefix[:6]}_baseline_{target.upper()}_{descriptors_type}_k{n_clusters}_{filters}",
+                    *(
+                        f"{prefix}_al{i}_{channel}_{target.upper()}_{descriptors_type}_k{n_clusters}_{filters}"
+                        for i in range(1, n_iters + 1)
+                    ),
+                ]
         elif "model7" in prefix:
-            fnames = [
-                f"{prefix[:6]}_baseline_{target.upper()}_{descriptors_type}_k{n_clusters}_{filters}",
-                *(
-                    f"{prefix}_{channel}_al{i}_{target.upper()}_{descriptors_type}_k{n_clusters}_{filters}"
-                    for i in range(1, n_iters + 1)
-                ),
-            ]
+            if "random" in channel:
+                fnames = [
+                    f"{prefix[:6]}_baseline_{target.upper()}_{channel}_{filters}",
+                    *(
+                        f"{prefix}_{channel}_al{i}_{target.upper()}_{channel}_{filters}"
+                        for i in range(1, n_iters + 1)
+                    ),
+                ]
+            else:
+                fnames = [
+                    f"{prefix[:6]}_baseline_{target.upper()}_{descriptors_type}_k{n_clusters}_{filters}",
+                    *(
+                        f"{prefix}_{channel}_al{i}_{target.upper()}_{descriptors_type}_k{n_clusters}_{filters}"
+                        for i in range(1, n_iters + 1)
+                    ),
+                ]
     elif n_clusters is not None:
         # original runs
         fnames = [
@@ -250,7 +268,9 @@ def prepare_score_distribution_traces(
     traces, metrics_list = [], []
     if clusterize:
         assert aggregation_mode in {"mean", "median"}
-        loader = lambda fname: compute_cluster_scores(scoring_path, fname, aggregation_mode)
+        loader = lambda fname: compute_cluster_scores(
+            scoring_path, fname, aggregation_mode
+        )
     else:
         loader = lambda fname: load_dist(scoring_path, fname)
     for i, (fname, label, color) in enumerate(zip(fnames, labels, colors)):

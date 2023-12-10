@@ -2,11 +2,19 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import yaml  # type:ignore
 import os
-from typing import List, Callable
+from typing import List, Callable, Tuple
 import pprint
-import numpy as np 
-pp = pprint.PrettyPrinter(indent=4, width=100, compact=False)
+import numpy as np
 
+pp = pprint.PrettyPrinter(indent=4, width=100, compact=False)
+import sys
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import tools.loaders
+
+prepare_generated_fnames = tools.loaders.setup_generations_fname_generator(
+    presuffix="temp1.0_metrics", filters=True
+)
 
 metrics_to_plot = {
     "validity": "Validity",
@@ -136,26 +144,45 @@ def create_table_trace(values, extra_params=None, showtext=None):
     )
 
 
+def prepare_nofilters_fnames(channel: str) -> List[str]:
+    prefix = "" if channel == "random" else "mix100_"
+    return [f"model7_{prefix}{channel}_al{i}_temp1.0_metrics" for i in range(1, 6)]
+
+
+def prepare_num_generations(
+    path: str,
+    fnames: List[str],
+)->go.Scatter:
+    num_generated:List[int] = []
+    for name in fnames:
+        file_path = path + name + ".txt"
+        metrics = read_metrics(file_path)
+        num_generated.append(int(metrics["generated"]))
+    return num_generated
+
+
 def prepare_quality_table(
-    generations_path:str, metric_functions: List[Callable], channel: str, n_rows: int, n_cols: int
+    generations_path: str,
+    fnames: List[str],
+    metric_functions: List[Callable],
+    n_rows: int,
+    n_cols: int,
 ):
     xVals = [f"Iteration {i}" for i in range(6)]
 
-    def channel_names(channel: str) -> List:
-        prefix = "" if channel == "random" else "mix100_"
-        return [(f"model7_{prefix}{channel}_al{i}", i) for i in range(1, 6)]
-
-    names = channel_names(channel)
     traces = []
     white = dict(colorscale="gray_r", zmin=0, zmax=100, showscale=False)
     regular = lambda i: dict(coloraxis=f"coloraxis{i}")
     for outer_i, metric_function in enumerate(metric_functions):
         qualities = np.empty([5, 5], dtype=object)
-        for name, col in names:
-            file_path = generations_path+ name + "_temp1.0_metrics.txt"
+        for col, name in enumerate(fnames):
+            # col +=1
+            print(f"load {name=}, {col=}")
+            file_path = generations_path + name + ".txt"
             metrics = read_metrics(file_path)
+            print(metrics)
             for row in range(col):
-                # print(metric_function(row))  # metrics[metric_function(col)])
+                print(metric_function(row))  # metrics[metric_function(col)])
                 qualities[row][col - 1] = metrics[metric_function(row)]
         row = outer_i // n_cols + 1
         col = outer_i % n_cols + 1
@@ -194,8 +221,3 @@ def create_memorization_heatmap_figure(
             col=col,
         )
     return fig
-
-
-
-
-

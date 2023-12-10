@@ -12,13 +12,24 @@ import pickle
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-prepare_scored_fnames = tools.loaders.setup_scored_fname_generator(filters=True)
-prepare_generations_fnames = tools.loaders.setup_generations_fname_generator(
-    presuffix="temp1.0_processed", filters=True
+prepare_scored_fnames = lambda filters: tools.loaders.setup_scored_fname_generator(
+    filters=filters
 )
-prepare_altrains_fnames = tools.loaders.setup_altrains_fname_generator(filters=True)
-prepare_diffusion_fnames = tools.loaders.setup_altrains_fname_generator(
-    filters=True, no_score=True
+prepare_generations_fnames = (
+    lambda filters: tools.loaders.setup_generations_fname_generator(
+        presuffix="temp1.0_processed", filters=filters
+    )
+)
+prepare_descriptors_fnames = (
+    lambda filters: tools.loaders.setup_generations_fname_generator(
+        presuffix="mix_temp1.0", filters=filters
+    )
+)
+prepare_altrains_fnames = lambda filters: tools.loaders.setup_altrains_fname_generator(
+    filters=filters
+)
+prepare_diffusion_fnames = lambda filters: tools.loaders.setup_altrains_fname_generator(
+    filters=filters, no_score=True
 )
 prepare_loader = tools.loaders.prepare_loader
 Number = Union[int, float]
@@ -67,6 +78,21 @@ def load_all_smiles(
     return smiles
 
 
+def load_descriptors_for_config(
+    configs: List[Tuple[str, ...]],
+    loader: Callable,
+):
+    n_iters = 5
+    dfs = []
+    for prefix, target, filters, channel in configs:
+        key = False if filters is None else True
+        descriptors_fnames = prepare_descriptors_fnames(key)(
+            prefix, n_iters, channel, filters, target
+        )
+        dfs.extend([loader(fname) for fname in descriptors_fnames])
+    return pd.concat(dfs).drop_duplicates(subset=["smiles"])
+
+
 def load_smiles_for_config(
     configs: List[Tuple[str, ...]],
     gen_loader: Callable,
@@ -74,6 +100,9 @@ def load_smiles_for_config(
     altrain_loader: Callable,
     save_path: str,
     save_fname: str,
+    threshold:int=37,
+    gen_sample: Union[int, None] = 10_000,
+    al_sample: Union[int, None] = 5_000,
 ):
     n_iters = 5
     scores_dfs = []
@@ -81,8 +110,9 @@ def load_smiles_for_config(
     altrains_smiles = []
     diffusion_smiles = []
     for prefix, target, filters, channel in configs:
-        scored_fnames = prepare_scored_fnames(prefix, n_iters, channel, filters, target)
-        generated_fnames = prepare_generations_fnames(
+        key = False if filters is None else True
+        scored_fnames = prepare_scored_fnames(key)(prefix, n_iters, channel, filters, target)
+        generated_fnames = prepare_generations_fnames(key)(
             prefix, n_iters, channel, filters, target
         )
         altrains_fnames, diffusion_fnames = [
@@ -92,23 +122,27 @@ def load_smiles_for_config(
                 channel,
                 filters,
                 target,
-                threshold=37,
+                threshold=threshold,
                 conversion_scheme="softmax_sub",
             )
             for fname_prepper in (
-                prepare_altrains_fnames,
-                prepare_diffusion_fnames,
+                prepare_altrains_fnames(key),
+                prepare_diffusion_fnames(key),
             )
         ]
         generated_smiles.extend(
-            load_all_smiles(generated_fnames, gen_loader, sample=10_000, verbose=True)
+            load_all_smiles(
+                generated_fnames, gen_loader, sample=gen_sample, verbose=True
+            )
         )
         altrains_smiles.extend(
-            load_all_smiles(altrains_fnames, altrain_loader, sample=5_000, verbose=True)
+            load_all_smiles(
+                altrains_fnames, altrain_loader, sample=al_sample, verbose=True
+            )
         )
         diffusion_smiles.extend(
             load_all_smiles(
-                diffusion_fnames, altrain_loader, sample=5_000, verbose=True
+                diffusion_fnames, altrain_loader, sample=al_sample, verbose=True
             )
         )
         scores_dfs.extend(load_all_scores(scored_fnames, scored_loader, merge=False))
@@ -284,13 +318,14 @@ def create_traces_from_difference(
     bin_size: Number,
     force_zmax: Optional[Number] = None,
     force_zmin: Optional[Number] = None,
+    coloraxis="coloraxis1",
 ):
     minuend_reduced_list = [
         [mapping[smile] for smile in smile_list] for smile_list in minuend
     ]
-    subtrahend_reduced = np.array([
-        mapping[smile] for smile in subtrahend[forced_subtrahend_index]
-    ])
+    subtrahend_reduced = np.array(
+        [mapping[smile] for smile in subtrahend[forced_subtrahend_index]]
+    )
     return [
         create_heatmap_trace_for_difference(
             minuend=np.array(minuend_reduced),
@@ -301,7 +336,7 @@ def create_traces_from_difference(
             force_zmin=force_zmin,
             showscale=i == 0,
             showlegend=False,
-            coloraxis="coloraxis2",
+            coloraxis=coloraxis,
         )
         for i, minuend_reduced in enumerate(minuend_reduced_list)
     ]
@@ -321,6 +356,8 @@ def prepare_scored_traces(
     tsne_reduced = np.array([tsne_mapping[smile] for smile in all_scores["smiles"]])
 
     pca_boundaries = get_data_boundaries([pca_reduced])
+    # print(pca_boundaries)
+    # pca_boundaries = (np.array([-20, -20]), np.array([60, 20]))
     tsne_boundaries = get_data_boundaries([tsne_reduced])
 
     pca_trace = create_heatmap_trace(

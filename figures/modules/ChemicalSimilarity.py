@@ -36,6 +36,12 @@ ABL_BINDERS = {
     "bafetinib": bafetinib,
     "asciminib": asciminib,
 }
+from rdkit.Chem import Descriptors
+for label, smile in ABL_BINDERS.items():
+    mol = Chem.MolFromSmiles(smile)
+    logP = Descriptors.MolLogP(mol)
+    print(f"{label} logP: {logP:.3f}")
+
 ALL_SIMILARITY_METRICS = [
     "Tanimoto",
     "Dice",
@@ -144,11 +150,12 @@ def compute_abl_inhibitors_similarity_matrix(
     return df
 
 
-def create_abl_trace(fp_type: str, sim_type: str) -> go.Heatmap:
+def create_abl_trace(fp_type: str, sim_type: str, sig_figs:int=1, **kwargs) -> go.Heatmap:
     df = compute_abl_inhibitors_similarity_matrix(fp_type, sim_type)
     text = [
-        [f"{val:.1f}" if not np.isnan(val) else "" for val in row] for row in df.values
+        [val if not np.isnan(val) else "" for val in row] for row in df.values
     ]
+    templ = f"%{{text:.{sig_figs}f}}"
     return go.Heatmap(
         z=df,
         x=df.columns,
@@ -157,7 +164,8 @@ def create_abl_trace(fp_type: str, sim_type: str) -> go.Heatmap:
         zmin=0,
         zmax=1,
         text=text,
-        texttemplate="%{text:.1f}",
+        texttemplate=templ,
+        **kwargs
     )
 
 
@@ -207,6 +215,11 @@ def compare_smiles_to_single_abl_binder(
         scores.append(score)
     return scores
 
+def compute_fingerprints_for_smiles(smiles: List[str], fp_type: str) -> List[ExplicitBitVect]:
+    assert fp_type in ALL_FP_TYPES, f"{fp_type} is not a supported fingerprint type"
+    mols = [create_mol_from_smile(smile) for smile in smiles]
+    fingerprints = [compute_fingerprint(mol, fp_type) for mol in mols]
+    return fingerprints
 
 def compare_smiles_to_fingerprint(
     smiles: List[str], reference_fp: str, fp_type: str, sim_type: str
@@ -255,11 +268,15 @@ def compare_smiles_to_abl_binders(
     assert all(
         metric in metricToFunc for metric in metrics
     ), f"{metrics} has a metric, which is not supported"
+    smiles_fps = compute_fingerprints_for_smiles(smiles, fp_type)
     abl_mols = [create_mol_from_smile(smile) for smile in ABL_BINDERS.values()]
     abl_fps = [compute_fingerprint(mol, fp_type) for mol in abl_mols]
     scores: Dict[str, List[float]] = {metric: [] for metric in metrics}
     for abl_fp in abl_fps:
-        sim_scores = compare_smiles_to_fingerprint(smiles, abl_fp, fp_type, sim_type)
+        # sim_scores = compare_smiles_to_fingerprint(smiles, abl_fp, fp_type, sim_type)
+        sim_scores = [
+            compute_similarity(abl_fp, smile_fp, sim_type) for smile_fp in smiles_fps
+        ]
         for metric in metrics:
             func = cast(Callable, metricToFunc[metric])
             scores[metric].append(func(sim_scores))
@@ -289,7 +306,7 @@ def create_similarity_al_trace(
         zmin=zmin,
         zmax=zmax,
         text=rev_scores,
-        texttemplate="%{text:.2f}",
+        texttemplate="%{text:.3f}",
         showscale=showscale,
         **update,
     )
@@ -335,10 +352,13 @@ def create_mean_max_similarity_figure(
     )
     fig.add_trace(mean_trace, row=1, col=1)
     fig.add_trace(max_trace, row=1, col=2)
-    return fig
+    return fig, mean_lists, max_lists
 
 
 prepare_scored_fnames = tools.loaders.setup_scored_fname_generator(filters=True)
+prepare_generated_fnames = tools.loaders.setup_generations_fname_generator(
+    presuffix="temp1.0_processed", filters=True
+)
 prepare_loader = tools.loaders.prepare_loader
 if __name__ == "__main__":
     fnames = prepare_scored_fnames(
