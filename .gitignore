@@ -6,6 +6,12 @@ sandbox.ipynb
 /PaperRuns/1_Pretraining/datasets/moses_train.csv.gz
 /PaperRuns/1_Pretraining/datasets/moses_test.csv.gz
 /PaperRuns/1_Pretraining/model_weights/
+/figures/exports/*/html/
+# /figures/exports/ligand_distribution/jpg/
+# /figures/exports/cluster_distribution/jpg/
+/figures/exports/
+secret.py
+*pkl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
