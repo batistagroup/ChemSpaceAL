@@ -4,13 +4,13 @@ from setuptools import setup
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-with open("ChemSpaceAL/requirements.txt") as f:
+with open("requirements.txt") as f:
     required = f.read().splitlines()
 
 setup(
     name="ChemSpaceAL",
     packages=["ChemSpaceAL"],
-    version="1.0.0",
+    version="2.0.0",
     description="ChemSpaceAL Python package: an efficient active learning methodology applied to protein-specific molecular generation",
     long_description=long_description,
     long_description_content_type="text/markdown",

@@ -129,6 +129,7 @@ def prepare_cycle_config(
     n_clusters: Optional[int] = None,
     filters: Optional[str] = None,
     target: Optional[str] = None,
+    gdt: bool = False,
 ) -> Tuple[List[str], List[str]]:
     if filters is not None:
         # filtering runs
@@ -171,14 +172,25 @@ def prepare_cycle_config(
                     ),
                 ]
     elif n_clusters is not None:
-        # original runs
-        fnames = [
-            f"{prefix}_baseline_{descriptors_type}_k{n_clusters}",
-            *(
-                f"{prefix}_{descriptors_type}{n_clusters}_{channel}_al{i}_{descriptors_type}_k{n_clusters}"
-                for i in range(1, n_iters + 1)
-            ),
-        ]
+        if not gdt:
+            # original runs
+            fnames = [
+                f"{prefix}_baseline_{descriptors_type}_k{n_clusters}",
+                *(
+                    f"{prefix}_{descriptors_type}{n_clusters}_{channel}_al{i}_{descriptors_type}_k{n_clusters}"
+                    for i in range(1, n_iters + 1)
+                ),
+            ]
+        else:
+            # gdt runs
+            assert isinstance(target, str)
+            fnames = [
+                f"{prefix}_baseline_gdt_{target.upper()}_{descriptors_type}_k{n_clusters}",
+                *(
+                    f"{prefix}_{channel}_al{i}_{target.upper()}_{descriptors_type}_k{n_clusters}"
+                    for i in range(1, n_iters + 1)
+                ),
+            ]
     else:
         # random runs
         fnames = [
