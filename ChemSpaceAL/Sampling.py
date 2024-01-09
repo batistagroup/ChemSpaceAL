@@ -170,7 +170,7 @@ def cluster_and_sample(
     n_iter: int = 100,
     objective: str = "mixed",
     load_kmeans=False,
-) -> Dict[int, np.ndarray[str]]:
+) -> Dict[int, np.ndarray]:
     """Cluster the molecules and then sample from each cluster.
 
     Args:
