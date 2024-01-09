@@ -587,6 +587,10 @@ class Config:
         self.cycle_temp_params["path_to_protein"] = (
             self.scoring_target_path + protein_path
         )
+        self.cycle_temp_params["path_to_poses"] = (
+            self.scoring_pose_path
+            + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}" + os.sep
+        )
         self.cycle_temp_params["path_to_scored"] = (
             self.scoring_score_path
             + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}.csv"
@@ -601,6 +605,10 @@ class Config:
             message += row.format(
                 "protein will be loaded from",
                 self.rel_path(self.cycle_temp_params["path_to_protein"]),
+            )
+            message += row.format(
+                "poses will be saved to",
+                self.rel_path(self.cycle_temp_params["path_to_poses"]),
             )
             message += row.format(
                 "and scored molecules will be saved to",

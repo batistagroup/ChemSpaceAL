@@ -2,6 +2,7 @@
 prod.ipynb
 sandbox.ipynb
 /Sophia/
+/publication_runs/
 
 /PaperRuns/1_Pretraining/datasets/moses_train.csv.gz
 /PaperRuns/1_Pretraining/datasets/moses_test.csv.gz
