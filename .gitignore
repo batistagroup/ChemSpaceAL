@@ -1,8 +1,12 @@
 .DS_Store
 prod.ipynb
 sandbox.ipynb
+draft_notebook.ipynb
+# ChemSpaceAL.ipynb
 /Sophia/
+/publication_runs/
 
+/PaperRuns/
 /PaperRuns/1_Pretraining/datasets/moses_train.csv.gz
 /PaperRuns/1_Pretraining/datasets/moses_test.csv.gz
 /PaperRuns/1_Pretraining/model_weights/

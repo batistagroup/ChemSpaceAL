@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 import pandas as pd
+import numpy as np
 import yaml  # type:ignore
 import re
 from typing import Optional, List, Tuple
@@ -153,13 +154,20 @@ def load_data(
     # Handle data loading for 'Active Learning' mode
     elif mode == "Active Learning":
         assert (
-            al_fname := config.cycle_temp_params["path_to_al_training_set"]
+            al_path := config.cycle_temp_params["path_to_al_training_set"]
         ) is not None, (
             f"The name of the AL training set (al_train_fname) was not initialized"
         )
-        al_data = pd.read_csv(config.al_train_path + al_fname)
+        cur_iter = f"al{config.al_iteration}"
+        prev_iter = f"al{config.al_iteration - 1}"
+        al_path = al_path.replace(cur_iter, prev_iter)
+        print(f"Will load AL training set from", config.rel_path(al_path))
+        al_data = pd.read_csv(al_path)
         smiles_iterators = [al_data[config.smiles_key].values]
-        desc_path = config.al_desc_path + al_fname.split(".")[0] + ".yaml"
+        # desc_path = config.al_desc_path + al_fname.split(".")[0] + ".yaml"
+        desc_path = (
+            config.pretrain_desc_path + config.training_fname.split(".")[0] + ".yaml"
+        )
     else:
         raise KeyError(
             f"Only 'pretraining' and 'active learning' modes are currently supported"

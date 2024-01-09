@@ -106,7 +106,7 @@ class Config:
     supported_descriptors: Set[str] = {"mix", "mqn", "mixmqn"}
     selection_modes: Set[str] = {"threshold", "percentile"}
     prolif_interactions: Set[str] = set(INTERACTION_WEIGHTS.keys())
-    probability_modes: Set[str] = {"softsub", "softdiv", "linear", "uniform"}
+    probability_modes: Set[str] = {"softmax", "softdiv", "linear", "uniform"}
 
     def __init__(
         self,
@@ -267,7 +267,7 @@ class Config:
         learning_rate: Optional[float] = None,
         lr_warmup: Optional[bool] = None,
         epochs: Optional[int] = None,
-        al_fname: Optional[str] = None,
+        al_path: Optional[str] = None,
         load_weight_path: Optional[str] = None,
         wandb_project_name: Optional[str] = None,
         wandb_runname: Optional[str] = None,
@@ -292,18 +292,21 @@ class Config:
             self.model_config.generation_params["desc_path"] = desc_path
 
         elif mode == "Active Learning":
-            if al_fname is None:
-                if (al_fname := self.cycle_temp_params["al_fname"]) is None:
+            if al_path is None:
+                if (al_path := self.cycle_temp_params["path_to_al_training_set"]) is None:
                     raise ValueError(
                         "The name of the Active Learning Set isn't stored in current session, please provide through al_fname argument"
                     )
-            desc_path = self.al_desc_path + al_fname.split(".")[0] + ".yaml"
+            desc_path = self.model_config.generation_params["desc_path"]
             assert (
                 self.al_iteration >= 1
             ), "al_iteration cannot be less than 1 in Active Learning mode"
+            if self.al_iteration == 1:
+                load_path = self.pretrain_weight_path
+            else:
+                load_path = self.al_weight_path
             load_model_weights = (
-                self.al_weight_path
-                + f"{self.cycle_prefix}_al{self.al_iteration-1}_{self.cycle_suffix}.pt"
+                load_path + f"{self.cycle_prefix}_al{self.al_iteration-1}_{self.cycle_suffix}.pt"
             )
             save_model_weights = (
                 self.al_weight_path
@@ -587,6 +590,10 @@ class Config:
         self.cycle_temp_params["path_to_protein"] = (
             self.scoring_target_path + protein_path
         )
+        self.cycle_temp_params["path_to_poses"] = (
+            self.scoring_pose_path
+            + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}" + os.sep
+        )
         self.cycle_temp_params["path_to_scored"] = (
             self.scoring_score_path
             + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}.csv"
@@ -603,6 +610,10 @@ class Config:
                 self.rel_path(self.cycle_temp_params["path_to_protein"]),
             )
             message += row.format(
+                "poses will be saved to",
+                self.rel_path(self.cycle_temp_params["path_to_poses"]),
+            )
+            message += row.format(
                 "and scored molecules will be saved to",
                 self.rel_path(self.cycle_temp_params["path_to_scored"]),
             )
@@ -616,7 +627,7 @@ class Config:
         selection_mode: str,
         training_size: int,
         n_replicate: bool = True,
-        probability_mode: str = "softsub",
+        probability_mode: str = "softmax",
         cluster_score_mode: str = "mean",
         softdiv_factor: Optional[float] = None,
         threshold: Optional[float] = None,
