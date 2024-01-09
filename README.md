@@ -3,7 +3,7 @@
 [![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![codecov](https://codecov.io/gh/batistagroup/ChemSpaceAL/graph/badge.svg?token=ROJSISYJWC)](https://codecov.io/gh/batistagroup/ChemSpaceAL)
-<a target="_blank" href="https://colab.research.google.com/github/batistagroup/ChemSpaceAL/ChemSpaceAL.ipynb">
+<a target="_blank" href="https://colab.research.google.com/github/batistagroup/ChemSpaceAL/blob/main/ChemSpaceAL.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
 
@@ -22,3 +22,13 @@ Associated preprint can be found on [arXiv](https://arxiv.org/abs/2309.05853). N
 in order to install the ChemSpaceAL package, simply run:
 
 ```pip install ChemSpaceAL```
+
+You could also open [ChemSpaceAL.ipynb in Google Colab](https://colab.research.google.com/github/batistagroup/ChemSpaceAL/blob/main/ChemSpaceAL.ipynb) to see an example of how to use a package.
+
+## Contact
+
+Please feel free to reach out to us through either of the following emails if you have any questions or need any additional files:
+
+- <gregory.kyro@yale.edu>
+- <anton.morgunov@yale.edu>
+- <rafi.brent@yale.edu>
