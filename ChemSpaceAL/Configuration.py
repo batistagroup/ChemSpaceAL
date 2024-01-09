@@ -106,7 +106,7 @@ class Config:
     supported_descriptors: Set[str] = {"mix", "mqn", "mixmqn"}
     selection_modes: Set[str] = {"threshold", "percentile"}
     prolif_interactions: Set[str] = set(INTERACTION_WEIGHTS.keys())
-    probability_modes: Set[str] = {"softsub", "softdiv", "linear", "uniform"}
+    probability_modes: Set[str] = {"softmax", "softdiv", "linear", "uniform"}
 
     def __init__(
         self,
@@ -624,7 +624,7 @@ class Config:
         selection_mode: str,
         training_size: int,
         n_replicate: bool = True,
-        probability_mode: str = "softsub",
+        probability_mode: str = "softmax",
         cluster_score_mode: str = "mean",
         softdiv_factor: Optional[float] = None,
         threshold: Optional[float] = None,

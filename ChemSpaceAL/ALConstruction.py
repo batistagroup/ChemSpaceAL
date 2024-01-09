@@ -221,8 +221,7 @@ def construct_al_training_set(config: Config, do_sampling: bool = True) -> pd.Da
         keyToData["smiles"].extend(sampled)
     if config.alconstruction_parameters["n_replicate"] is True:
         multiplier = int(np.ceil(size // 2 / len(top_ligands)))
-
-    keyToData["smiles"].extend(top_ligands * multiplier)
+        keyToData["smiles"].extend(top_ligands['smiles'].to_list() * multiplier)
 
     combined = pd.DataFrame(keyToData)
     combined.to_csv(config.cycle_temp_params["path_to_al_training_set"])
