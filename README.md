@@ -16,9 +16,9 @@
 
 The incredible capabilities of generative artificial intelligence models have inevitably led to their application in the domain of drug discovery. Within this domain, the vastness of chemical space motivates the development of more efficient methods for identifying regions with molecules that exhibit desired characteristics. In this work, we present a computationally efficient active learning methodology that requires evaluation of only a subset of the generated data in the constructed sample space to successfully align a generative model with respect to a specified objective. We demonstrate the applicability of this methodology to targeted molecular generation by fine-tuning a GPT-based molecular generator toward a protein with FDA-approved small-molecule inhibitors, c-Abl kinase. Remarkably, the model learns to generate molecules similar to the inhibitors without prior knowledge of their existence, and even reproduces two of them exactly. We also show that the methodology is effective for a protein without any commercially available small-molecule inhibitors, the HNH domain of the CRISPR-associated protein 9 (Cas9) enzyme. We believe that the inherent generality of this method ensures that it will remain applicable as the exciting field of in silico molecular generation evolves. To facilitate implementation and reproducibility, we have made all of our software available through the open-source ChemSpaceAL Python package.
 
-## Preprint
+## Publication
 
-Associated preprint can be found on [arXiv](https://arxiv.org/abs/2309.05853). Note, a second version of the preprint has been posted on Dec 4, 2023.
+This work has been published in [Journal of Chemical Information and Modeling](https://pubs.acs.org/doi/10.1021/acs.jcim.3c01456) - check it out for more in-depth description of the project! You can also find the associated preprint on [arXiv](https://arxiv.org/abs/2309.05853).
 
 ## Installation
 
