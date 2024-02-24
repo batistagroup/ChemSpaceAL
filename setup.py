@@ -7,7 +7,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="ChemSpaceAL",
     packages=["ChemSpaceAL"],
-    version="2.0.0",
+    version="2.0.1",
     description="ChemSpaceAL Python package: an efficient active learning methodology applied to protein-specific molecular generation",
     long_description=long_description,
     long_description_content_type="text/markdown",
