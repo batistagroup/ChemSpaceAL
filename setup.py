@@ -4,9 +4,6 @@ from setuptools import setup
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-with open("requirements.txt") as f:
-    required = f.read().splitlines()
-
 setup(
     name="ChemSpaceAL",
     packages=["ChemSpaceAL"],
@@ -31,9 +28,16 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    install_requires=required,
-    # install_requires=[
-    #     # "pytest"
-    # ]
+    install_requires=[
+        "prolif==2.0.1",
+        "pandas==1.5.3",
+        "numpy",
+        "rdkit",
+        "torch",
+        "PyYAML",
+        "scikit_learn",
+        "tqdm",
+        "wandb"
+    ],
     python_requires=">=3.10",
 )

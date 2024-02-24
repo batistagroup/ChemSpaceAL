@@ -4,8 +4,9 @@ sandbox.ipynb
 draft_notebook.ipynb
 # ChemSpaceAL.ipynb
 /Sophia/
+Sophia/
 /publication_runs/
-
+runs/
 /PaperRuns/
 /PaperRuns/1_Pretraining/datasets/moses_train.csv.gz
 /PaperRuns/1_Pretraining/datasets/moses_test.csv.gz

@@ -142,7 +142,7 @@ class Trainer:
             log_dict = {"epoch_train_loss": train_loss, "epoch": epoch + 1}
 
             if self.valid_dataset is not None:
-                valid_loss = self.run_epoch("valid")
+                valid_loss = self.run_epoch("valid", epoch)
                 log_dict["epoch_valid_loss"] = valid_loss
 
             if self.wandb:
