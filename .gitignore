@@ -6,7 +6,10 @@ draft_notebook.ipynb
 /Sophia/
 Sophia/
 /publication_runs/
+
 runs/
+/releases/
+
 /PaperRuns/
 /PaperRuns/1_Pretraining/datasets/moses_train.csv.gz
 /PaperRuns/1_Pretraining/datasets/moses_test.csv.gz
