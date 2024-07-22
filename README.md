@@ -6,6 +6,7 @@
 [![codecov](https://codecov.io/gh/batistagroup/ChemSpaceAL/graph/badge.svg?token=ROJSISYJWC)](https://codecov.io/gh/batistagroup/ChemSpaceAL)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/batistagroup/ChemSpaceAL/blob/main/LICENSE)
 [![image](https://img.shields.io/pypi/v/ChemSpaceAL.svg)](https://pypi.org/project/ChemSpaceAL/)
+[![arXiv](https://img.shields.io/badge/arXiv-2309.05853.svg)](https://arxiv.org/abs/2309.05853)
 <a target="_blank" href="https://colab.research.google.com/github/batistagroup/ChemSpaceAL/blob/main/ChemSpaceAL.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
