@@ -33,7 +33,7 @@ setup(
         "pandas==1.5.3",
         "numpy==1.25.2",
         "rdkit==2023.03.3",
-        "torch==2.0.1+cu118",
+        "torch==2.0.1",
         "PyYAML",
         "scikit_learn",
         "tqdm",
