@@ -211,20 +211,20 @@ def train_GPT(
         * training_dataset.len_data
         * training_dataset.block_size
     )
-    if load_checkpoint:
-        dataset = SMILESDataset()
-        dataset.load_desc_attributes(mconf.generation_params["desc_path"])
-    else:
-        dataset = training_dataset
+    # if load_checkpoint:
+    #     dataset = SMILESDataset()
+    #     dataset.load_desc_attributes(mconf.generation_params["desc_path"])
+    # else:
+        # dataset = training_dataset
 
     mconf.set_dataset_attributes(
-        vocab_size=dataset.vocab_size,
-        block_size=dataset.block_size,
+        vocab_size=training_dataset.vocab_size,
+        block_size=training_dataset.block_size,
         num_warmup_tokens=int(
             0.1 * training_dataset.len_data * training_dataset.block_size
         ),
         total_num_tokens=total_num_tokens,
-        loss_ignore_index=dataset.stoi["<"],
+        loss_ignore_index=training_dataset.stoi["<"],
     )
 
     model = GPT(mconf)

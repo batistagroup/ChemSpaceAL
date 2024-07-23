@@ -191,11 +191,11 @@ def load_data(
     max_len += 1
 
     if forced_block_size:
-        assert mode == "Active Learning", "Cannot force a block size in pretraining"
+        # assert mode == "Active Learning", "Cannot force a block size in pretraining"
         max_len = forced_block_size
 
     if forced_vocab:
-        assert mode == "Active Learning", "Cannot force a vocabulary in pretraining"
+        # assert mode == "Active Learning", "Cannot force a vocabulary in pretraining"
         chars = sorted(list(forced_vocab))
 
     datasets = []
