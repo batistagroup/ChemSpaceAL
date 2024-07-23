@@ -214,7 +214,7 @@ def load_data(
         )
         datasets.append(dataset)
 
-    if mode == "Active Learning":
+    if mode == "Active Learning" or mode == "TEST":
         return datasets[0]
     else:
         datasets[0].export_descriptors(desc_path)
