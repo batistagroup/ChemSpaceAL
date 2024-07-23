@@ -118,6 +118,7 @@ def load_data(
     mode: str,
     forced_block_size: Optional[int] = None,
     forced_vocab: Optional[List[str]] = None,
+    test_data_path:Optional[str]=None,
 ):
     """
     Load data based on the provided configuration dictionary.
@@ -168,6 +169,9 @@ def load_data(
         # desc_path = (
         #     config.pretrain_desc_path + config.training_fname.split(".")[0] + ".yaml"
         # )
+    elif mode == "TEST":
+        data = pd.read_csv(test_data_path)
+        smiles_iterators = [data[config.smiles_key].values]
     else:
         raise KeyError(
             f"Only 'pretraining' and 'active learning' modes are currently supported"

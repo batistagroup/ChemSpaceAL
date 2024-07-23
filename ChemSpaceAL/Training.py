@@ -229,6 +229,7 @@ def train_GPT(
 
     model = GPT(mconf)
     if load_checkpoint:
+        print(f"Loading ckpt from {ckpt}")
         model.load_state_dict(torch.load(ckpt))
     optimizer = model.configure_optimizers(
         weight_decay=mconf.weight_decay,
