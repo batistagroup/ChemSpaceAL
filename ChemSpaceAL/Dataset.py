@@ -165,9 +165,9 @@ def load_data(
         al_data = pd.read_csv(al_path)
         smiles_iterators = [al_data[config.smiles_key].values]
         # desc_path = config.al_desc_path + al_fname.split(".")[0] + ".yaml"
-        desc_path = (
-            config.pretrain_desc_path + config.training_fname.split(".")[0] + ".yaml"
-        )
+        # desc_path = (
+        #     config.pretrain_desc_path + config.training_fname.split(".")[0] + ".yaml"
+        # )
     else:
         raise KeyError(
             f"Only 'pretraining' and 'active learning' modes are currently supported"
@@ -210,9 +210,8 @@ def load_data(
         )
         datasets.append(dataset)
 
-    datasets[0].export_descriptors(desc_path)
-
     if mode == "Active Learning":
         return datasets[0]
     else:
+        datasets[0].export_descriptors(desc_path)
         return datasets
