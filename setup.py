@@ -31,9 +31,9 @@ setup(
     install_requires=[
         "prolif==2.0.1",
         "pandas==1.5.3",
-        "numpy==1.25.2",
+        "numpy==1.23.1",
         "rdkit==2023.03.3",
-        "torch",
+        "torch==2.1.0",
         "PyYAML",
         "scikit_learn",
         "tqdm",

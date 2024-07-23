@@ -1,9 +1,12 @@
 import pandas as pd
 import numpy as np
 import pickle
+from tqdm import tqdm
+from rdkit import Chem, RDLogger
 
 from ChemSpaceAL.Configuration import Config
 from typing import Union, Dict, List, Callable, Optional, cast
+RDLogger.DisableLog("rdApp.*")
 
 Number = Union[float, int]
 
@@ -226,3 +229,40 @@ def construct_al_training_set(config: Config, do_sampling: bool = True) -> pd.Da
     combined = pd.DataFrame(keyToData)
     combined.to_csv(config.cycle_temp_params["path_to_al_training_set"])
     return combined
+
+def get_mol(smile_string:str):
+    mol = Chem.MolFromSmiles(smile_string)
+    if mol is None:
+        return None
+    try:
+        Chem.SanitizeMol(mol)
+    except ValueError:
+        return None
+    return mol
+
+def fill_translation_table(config):
+    smile_df = pd.read_csv(config.cycle_temp_params["completions_fname"])
+    rdkit_to_predicted = {}
+    pbar = tqdm(smile_df['smiles'], total=len(smile_df))
+    for completion in pbar:
+        if completion[0] == '!' and completion[1] == '~':
+            completion = '!' + completion[2:]
+        if '~' not in completion: continue
+        mol_string = completion[1:completion.index('~')]
+        mol = get_mol(mol_string)
+        if mol is None: continue
+        canonic_smile = Chem.MolToSmiles(mol)
+        rdkit_to_predicted[canonic_smile] = mol_string
+    return rdkit_to_predicted
+
+def translate_dataset_for_al(config):
+    rdkit_to_predicted = fill_translation_table(config)
+    al_path = config.cycle_temp_params["path_to_al_training_set"]
+    sampled = pd.read_csv(al_path)
+    translated = []
+    for mol in sampled['smiles'].values:
+        mol = rdkit_to_predicted[mol]
+        translated.append(mol)
+    transl_path = al_path.split('.csv')[0]+"_translated.csv"
+    pd.DataFrame({"smiles": translated}).to_csv(transl_path)
+    return transl_path

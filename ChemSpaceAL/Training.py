@@ -202,12 +202,20 @@ def train_GPT(
         ) is not None, (
             "please provide load_weight_path to .set_training_parameters of the config"
         )
+        assert (
+            mconf.generation_params["desc_path"]
+        ) is not None, "please call .set_training_parameters with mode Pretraining to set desc_path"
 
     total_num_tokens = (
         mconf.train_params["epochs"]
         * training_dataset.len_data
         * training_dataset.block_size
     )
+    # if load_checkpoint:
+    #     dataset = SMILESDataset()
+    #     dataset.load_desc_attributes(mconf.generation_params["desc_path"])
+    # else:
+        # dataset = training_dataset
 
     mconf.set_dataset_attributes(
         vocab_size=training_dataset.vocab_size,
@@ -221,6 +229,7 @@ def train_GPT(
 
     model = GPT(mconf)
     if load_checkpoint:
+        print(f"Loading ckpt from {ckpt}")
         model.load_state_dict(torch.load(ckpt))
     optimizer = model.configure_optimizers(
         weight_decay=mconf.weight_decay,
