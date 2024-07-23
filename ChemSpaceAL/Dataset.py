@@ -167,8 +167,8 @@ def load_data(
             f"Only 'pretraining' and 'active learning' modes are currently supported"
         )
 
+    regex = re.compile(config.regex_pattern)
     if mode == "Pretraining":
-        regex = re.compile(config.regex_pattern)
         char_set = {"!", "~", "<"}  # start, end, padding tokens respectively
 
         max_len = 0
