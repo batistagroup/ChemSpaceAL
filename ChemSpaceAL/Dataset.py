@@ -116,9 +116,6 @@ class SMILESDataset(Dataset):
 def load_data(
     config: Configuration.Config,
     mode: str,
-    forced_block_size: Optional[int] = None,
-    forced_vocab: Optional[List[str]] = None,
-    test_data_path:Optional[str]=None,
 ):
     """
     Load data based on the provided configuration dictionary.
@@ -155,48 +152,39 @@ def load_data(
     # Handle data loading for 'Active Learning' mode
     elif mode == "Active Learning":
         assert (
-            al_path := config.cycle_temp_params["path_to_al_training_set"]
+            al_path := config.cycle_temp_params["path_to_al_translated_set"]
         ) is not None, (
             f"The name of the AL training set (al_train_fname) was not initialized"
         )
         cur_iter = f"al{config.al_iteration}"
         prev_iter = f"al{config.al_iteration - 1}"
         al_path = al_path.replace(cur_iter, prev_iter)
-        print(f"Will load AL training set from", config.rel_path(al_path))
+        print("Will load AL training set from", config.rel_path(al_path))
         al_data = pd.read_csv(al_path)
         smiles_iterators = [al_data[config.smiles_key].values]
-        # desc_path = config.al_desc_path + al_fname.split(".")[0] + ".yaml"
-        # desc_path = (
-        #     config.pretrain_desc_path + config.training_fname.split(".")[0] + ".yaml"
-        # )
-    elif mode == "TEST":
-        data = pd.read_csv(test_data_path)
-        smiles_iterators = [data[config.smiles_key].values]
     else:
         raise KeyError(
             f"Only 'pretraining' and 'active learning' modes are currently supported"
         )
 
-    regex = re.compile(config.regex_pattern)
-    char_set = {"!", "~", "<"}  # start, end, padding tokens respectively
+    if mode == "Pretraining":
+        regex = re.compile(config.regex_pattern)
+        char_set = {"!", "~", "<"}  # start, end, padding tokens respectively
 
-    max_len = 0
-    for smiles in smiles_iterators:
-        for smile in smiles:
-            chars = regex.findall(smile.strip())
-            max_len = max(max_len, len(chars))
-            char_set.update(chars)
+        max_len = 0
+        for smiles in smiles_iterators:
+            for smile in smiles:
+                chars = regex.findall(smile.strip())
+                max_len = max(max_len, len(chars))
+                char_set.update(chars)
 
-    chars = sorted(list(char_set))
-    max_len += 1
-
-    if forced_block_size:
-        # assert mode == "Active Learning", "Cannot force a block size in pretraining"
-        max_len = forced_block_size
-
-    if forced_vocab:
-        # assert mode == "Active Learning", "Cannot force a vocabulary in pretraining"
-        chars = sorted(list(forced_vocab))
+        chars = sorted(list(char_set))
+        max_len += 1
+    elif mode == "Active Learning":
+        with open(config.model_config.generation_params["desc_path"], 'r') as f:
+            data = yaml.load(f, Loader=yaml.FullLoader)
+        max_len = data["block_size"]
+        chars = sorted(list(data["stoi"].keys()))
 
     datasets = []
     for smiles in smiles_iterators:
@@ -214,7 +202,7 @@ def load_data(
         )
         datasets.append(dataset)
 
-    if mode == "Active Learning" or mode == "TEST":
+    if mode == "Active Learning":
         return datasets[0]
     else:
         datasets[0].export_descriptors(desc_path)

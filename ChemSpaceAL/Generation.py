@@ -5,7 +5,7 @@ from tqdm import tqdm
 import pandas as pd
 import numpy as np
 import rdkit
-from rdkit import Chem
+from rdkit import Chem, RDLogger
 from rdkit.Chem import Fragments
 
 from ChemSpaceAL.Model import GPT
@@ -13,7 +13,7 @@ from ChemSpaceAL.Configuration import Config, AdmetDict
 from ChemSpaceAL.Dataset import SMILESDataset
 
 from typing import Set, List, Callable, Union, Optional, Any, Dict
-
+RDLogger.DisableLog("rdApp.*")
 
 @torch.no_grad()
 def sample(

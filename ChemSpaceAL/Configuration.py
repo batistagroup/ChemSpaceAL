@@ -670,6 +670,10 @@ class Config:
             self.al_train_path
             + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}.csv"
         )
+        self.cycle_temp_params["path_to_al_translated_set"] = (
+            self.al_train_path
+            + f"{self.cycle_prefix}_al{self.al_iteration}_{self.cycle_suffix}_translated.csv"
+        )
         if self.verbose:
             message = (
                 "--- The following AL training set construction parameters were set:"
